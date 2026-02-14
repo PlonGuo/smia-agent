@@ -65,13 +65,30 @@ async def debug_check():
     key = settings.effective_openai_key
     results["openai_key_prefix"] = key[:8] + "..." if len(key) > 8 else "too_short"
     results["openai_key_length"] = len(key)
+
+    # 3a. Raw httpx test to api.openai.com
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10) as hc:
+            resp = await hc.get(
+                "https://api.openai.com/v1/models",
+                headers={"Authorization": f"Bearer {key}"},
+            )
+            results["openai_raw_httpx"] = f"status={resp.status_code}"
+    except Exception as e:
+        results["openai_raw_httpx"] = f"error: {type(e).__name__}: {e}"
+
+    # 3b. OpenAI SDK test
     try:
         import openai
+        results["openai_sdk_version"] = openai.__version__
         oc = openai.AsyncOpenAI(api_key=key)
         await oc.models.list()
         results["openai_connection"] = "ok"
     except Exception as e:
+        import traceback
         results["openai_connection"] = f"error: {type(e).__name__}: {e}"
+        results["openai_traceback"] = traceback.format_exc()[-500:]
 
     # 4. Check crawl4ai availability
     try:
