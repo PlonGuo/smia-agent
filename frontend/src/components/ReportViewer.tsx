@@ -1,8 +1,10 @@
+import { lazy, Suspense } from 'react';
 import {
   Box,
   Badge,
   Card,
   Heading,
+  Skeleton,
   Text,
   Stack,
   Flex,
@@ -11,9 +13,14 @@ import {
   Link,
 } from '@chakra-ui/react';
 import type { TrendReport } from '../../../shared/types';
-import SentimentChart from './charts/SentimentChart';
-import SourceDistribution from './charts/SourceDistribution';
 import { ExternalLink, Clock, Cpu } from 'lucide-react';
+
+const SentimentChart = lazy(() => import('./charts/SentimentChart'));
+const SourceDistribution = lazy(() => import('./charts/SourceDistribution'));
+
+function ChartSkeleton() {
+  return <Skeleton height="250px" width="100%" />;
+}
 
 const SENTIMENT_COLOR: Record<string, string> = {
   Positive: 'green',
@@ -96,20 +103,24 @@ export default function ReportViewer({ report }: ReportViewerProps) {
         <Box flex={1} minW="300px">
           <Card.Root>
             <Card.Body>
-              {sentimentTimeline ? (
-                <SentimentChart data={sentimentTimeline} />
-              ) : (
-                <Text color="fg.muted" fontSize="sm">
-                  No sentiment timeline data available
-                </Text>
-              )}
+              <Suspense fallback={<ChartSkeleton />}>
+                {sentimentTimeline ? (
+                  <SentimentChart data={sentimentTimeline} />
+                ) : (
+                  <Text color="fg.muted" fontSize="sm">
+                    No sentiment timeline data available
+                  </Text>
+                )}
+              </Suspense>
             </Card.Body>
           </Card.Root>
         </Box>
         <Box flex={1} minW="300px">
           <Card.Root>
             <Card.Body>
-              <SourceDistribution data={report.source_breakdown} />
+              <Suspense fallback={<ChartSkeleton />}>
+                <SourceDistribution data={report.source_breakdown} />
+              </Suspense>
             </Card.Body>
           </Card.Root>
         </Box>

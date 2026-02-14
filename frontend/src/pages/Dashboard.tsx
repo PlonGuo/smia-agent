@@ -2,9 +2,11 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Box,
   Button,
+  Card,
   Flex,
   Heading,
   Input,
+  Skeleton,
   Stack,
   Text,
   NativeSelect,
@@ -113,7 +115,15 @@ export default function Dashboard() {
 
       {/* Reports list */}
       {loading ? (
-        <Text color="fg.muted">Loading reports...</Text>
+        <Stack gap={4}>
+          {[1, 2, 3].map((i) => (
+            <Card.Root key={i} p={4}>
+              <Skeleton height="20px" width="60%" mb={2} />
+              <Skeleton height="14px" width="40%" mb={3} />
+              <Skeleton height="14px" width="80%" />
+            </Card.Root>
+          ))}
+        </Stack>
       ) : reports.length === 0 ? (
         <Box textAlign="center" py={12}>
           <Text fontSize="lg" color="fg.muted" mb={2}>

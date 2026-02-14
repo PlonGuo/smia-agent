@@ -1,0 +1,7 @@
+api/uv.lock
+api/pyproject.toml
+libs/
+api/tests/
+__pycache__
+*.pyc
+.pytest_cache

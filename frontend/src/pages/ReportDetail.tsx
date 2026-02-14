@@ -3,9 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
+  Card,
   Flex,
   Heading,
   IconButton,
+  Skeleton,
+  Stack,
   Text,
 } from '@chakra-ui/react';
 import type { TrendReport } from '../../../shared/types';
@@ -51,9 +54,18 @@ export default function ReportDetail() {
 
   if (loading) {
     return (
-      <Box py={12} textAlign="center">
-        <Text color="fg.muted">Loading report...</Text>
-      </Box>
+      <Stack gap={6}>
+        <Skeleton height="32px" width="40%" />
+        <Card.Root p={6}>
+          <Skeleton height="20px" width="70%" mb={3} />
+          <Skeleton height="14px" width="100%" mb={2} />
+          <Skeleton height="14px" width="90%" mb={2} />
+          <Skeleton height="14px" width="60%" />
+        </Card.Root>
+        <Card.Root p={6}>
+          <Skeleton height="200px" width="100%" />
+        </Card.Root>
+      </Stack>
     );
   }
 

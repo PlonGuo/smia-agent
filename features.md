@@ -83,7 +83,7 @@
 - [x] Wire analysis endpoint to PydanticAI agent, save result to database
 - [x] Add processing time measurement and store in report
 - [x] Add Langfuse trace_id to saved report
-- [ ] Add rate limiting: 100 requests/hour per user (web)
+- [x] Add rate limiting: 100 requests/hour per user (web)
 - [x] Add error handling: 400 (invalid query), 422 (source fetch failure), 429 (rate limit), 500 (analysis failure)
 - [x] Write API tests for `/api/analyze` (mock agent, test auth, test error cases)
 
@@ -263,8 +263,8 @@
 - [x] Handle invalid query (no topic provided): send user-friendly error
 - [x] Handle unbound account: send message with link to web settings
 - [x] Handle scraping failures: send partial results notice
-- [ ] Implement rate limiting: 10 analyses/hour per Telegram user (deferred to Phase 4)
-- [ ] Handle rate limit exceeded: send friendly message with wait time (deferred to Phase 4)
+- [x] Implement rate limiting: 10 analyses/hour per Telegram user
+- [x] Handle rate limit exceeded: send friendly message with wait time
 - [x] Handle unexpected errors: send generic error message, log to Langfuse
 
 ### 3.6 Telegram Bot Testing
@@ -292,17 +292,17 @@
 
 ### 4.2 UI Polish
 
-- [ ] Add Chakra Skeleton loading states to all pages (analysis, dashboard, report detail)
+- [x] Add Chakra Skeleton loading states to all pages (analysis, dashboard, report detail)
 - [ ] Add empty state illustrations/messages (no reports, no results)
-- [ ] Add React error boundaries to catch component-level crashes
+- [x] Add React error boundaries to catch component-level crashes
 - [ ] Run accessibility audit (Chakra built-in a11y, keyboard navigation, screen reader support)
 - [ ] Polish animations and transitions (page transitions, loading states, hover effects)
 - [ ] Ensure consistent spacing, typography, and color usage across all pages
 
 ### 4.3 Performance Optimization
 
-- [ ] Optimize frontend bundle size (Chakra UI tree-shaking, lazy-load routes and chart components)
-- [ ] Verify all database indexes are in place and used by queries
+- [x] Optimize frontend bundle size (Chakra UI tree-shaking, lazy-load routes and chart components)
+- [x] Verify all database indexes are in place and used by queries
 - [ ] Test Vercel serverless cold start performance and optimize if needed
 - [ ] Verify Langfuse async logging is non-blocking (does not add latency to responses)
 - [ ] Add frontend caching for dashboard data (avoid re-fetching on every navigation)
@@ -318,9 +318,9 @@
 
 ### 4.5 Deployment & Launch Prep
 
-- [ ] Configure all environment variables in Vercel dashboard (database, OpenAI, Langfuse, Telegram, Supabase)
-- [ ] Deploy backend to Vercel serverless functions
-- [ ] Deploy frontend to Vercel static hosting
+- [x] Configure all environment variables in Vercel dashboard (database, OpenAI, Langfuse, Telegram, Supabase)
+- [x] Deploy backend to Vercel serverless functions
+- [x] Deploy frontend to Vercel static hosting
 - [ ] Setup Telegram webhook pointing to production URL
 - [ ] Setup custom domain (if applicable)
 - [ ] Run end-to-end smoke test on production (web: signup -> analyze -> dashboard; Telegram: bind -> analyze -> history)

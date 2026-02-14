@@ -7,6 +7,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from core.auth import AuthenticatedUser, get_current_user
+from core.rate_limit import check_rate_limit
 from models.schemas import AnalyzeRequest, AnalyzeResponse
 from services.agent import analyze_topic
 
@@ -24,6 +25,14 @@ async def analyze(
 
     Requires a valid Supabase JWT in the Authorization header.
     """
+    # Rate limit check
+    allowed, remaining = check_rate_limit(user.user_id, source="web")
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded. You can perform 100 analyses per hour.",
+        )
+
     try:
         report = await analyze_topic(
             query=body.query,
