@@ -46,6 +46,42 @@ def get_supabase_client(access_token: str | None = None) -> Client:
 # Analysis reports
 # ---------------------------------------------------------------------------
 
+def save_report_service(report_data: dict, user_id: str) -> dict:
+    """Insert a new analysis report using the service-role client.
+
+    Used by the Telegram bot which has no user JWT.
+    """
+    client = get_supabase_client()  # service-role, bypasses RLS
+
+    payload = {**report_data, "user_id": user_id}
+    # Remove None metadata fields that shouldn't be inserted
+    payload = {k: v for k, v in payload.items() if v is not None}
+    response = client.table("analysis_reports").insert(payload).execute()
+    return response.data[0]
+
+
+def get_recent_reports_by_user(user_id: str, limit: int = 5) -> list[dict]:
+    """Return the most recent reports for a user (service-role).
+
+    Used by the Telegram bot's /history command.
+    """
+    client = get_supabase_client()  # service-role
+
+    try:
+        response = (
+            client.table("analysis_reports")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return response.data
+    except APIError as exc:
+        logger.error("Failed to fetch recent reports for user %s: %s", user_id, exc)
+        return []
+
+
 def save_report(report_data: dict, user_id: str, access_token: str) -> dict:
     """Insert a new analysis report and return the created row."""
     client = get_supabase_client(access_token)

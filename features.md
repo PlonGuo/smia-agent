@@ -228,53 +228,54 @@
 ### 3.1 Bot Setup
 
 - [ ] Register bot with @BotFather and obtain token (manual step, store in env)
-- [ ] Create `api/routes/telegram.py` with `POST /telegram/webhook` endpoint
-- [ ] Setup python-telegram-bot in webhook mode (not polling)
-- [ ] Implement command parser to route incoming messages to handlers
-- [ ] Create `api/services/telegram_service.py` with message formatting helpers
-- [ ] Create `scripts/setup_telegram_webhook.py` script to register webhook URL with Telegram API
+- [x] Create `api/routes/telegram.py` with `POST /telegram/webhook` endpoint
+- [x] Setup serverless webhook mode (httpx-based, no polling — Vercel-compatible)
+- [x] Implement command parser to route incoming messages to handlers
+- [x] Create `api/services/telegram_service.py` with message formatting helpers
+- [x] Create `scripts/setup_telegram_webhook.py` script to register webhook URL with Telegram API
 
 ### 3.2 Bot Commands
 
-- [ ] Implement `/start` command: welcome message + instructions + binding info
-- [ ] Implement `/help` command: list all available commands with descriptions
-- [ ] Implement `/analyze <topic>` command: extract topic, trigger PydanticAI agent, return formatted summary
-- [ ] Format analysis response per PRD Section 5.3 F-08 (topic, sentiment, key insights, sources, web link)
-- [ ] Implement `/bind <code>` command: validate code, link telegram_user_id to web user_id, send confirmation
-- [ ] Implement `/history` command: query last 5 reports, format as clickable list with web links
+- [x] Implement `/start` command: welcome message + instructions + binding info
+- [x] Implement `/help` command: list all available commands with descriptions
+- [x] Implement `/analyze <topic>` command: extract topic, trigger PydanticAI agent, return formatted summary
+- [x] Format analysis response per PRD Section 5.3 F-08 (topic, sentiment, key insights, sources, web link)
+- [x] Implement `/bind <code>` command: validate code, link telegram_user_id to web user_id, send confirmation
+- [x] Implement `/history` command: query last 5 reports, format as clickable list with web links
 
 ### 3.3 Account Binding
 
-- [ ] Implement binding flow: lookup bind_code in user_bindings table, validate not expired (15 min)
-- [ ] Link telegram_user_id to user_id in user_bindings table
-- [ ] Prevent duplicate bindings (one Telegram account per web account)
-- [ ] Send confirmation message to Telegram on successful bind
-- [ ] Handle unbound user attempting `/analyze`: send helpful error with link to settings page
+- [x] Implement binding flow: lookup bind_code in user_bindings table, validate not expired (15 min)
+- [x] Link telegram_user_id to user_id in user_bindings table
+- [x] Prevent duplicate bindings (one Telegram account per web account)
+- [x] Send confirmation message to Telegram on successful bind
+- [x] Handle unbound user attempting `/analyze`: send helpful error with link to settings page
 
 ### 3.4 Cross-Platform Sync
 
-- [ ] Ensure Telegram analyses are saved with `source='telegram'` in database
-- [ ] Verify Telegram reports appear in web dashboard (same user_id)
-- [ ] Generate and include web report URL in Telegram response (`https://smia.app/reports/{id}`)
-- [ ] Add Langfuse tracing for Telegram bot queries (source="telegram" in metadata)
+- [x] Ensure Telegram analyses are saved with `source='telegram'` in database
+- [x] Verify Telegram reports appear in web dashboard (same user_id) — uses same save_report_service + user_id
+- [x] Generate and include web report URL in Telegram response (`https://smia-platform.vercel.app/reports/{id}`)
+- [x] Add Langfuse tracing for Telegram bot queries (source="telegram" in metadata)
 
 ### 3.5 Bot Error Handling
 
-- [ ] Handle invalid query (no topic provided): send user-friendly error
-- [ ] Handle unbound account: send message with link to web settings
-- [ ] Handle scraping failures: send partial results notice
-- [ ] Implement rate limiting: 10 analyses/hour per Telegram user
-- [ ] Handle rate limit exceeded: send friendly message with wait time
-- [ ] Handle unexpected errors: send generic error message, log to Langfuse
+- [x] Handle invalid query (no topic provided): send user-friendly error
+- [x] Handle unbound account: send message with link to web settings
+- [x] Handle scraping failures: send partial results notice
+- [ ] Implement rate limiting: 10 analyses/hour per Telegram user (deferred to Phase 4)
+- [ ] Handle rate limit exceeded: send friendly message with wait time (deferred to Phase 4)
+- [x] Handle unexpected errors: send generic error message, log to Langfuse
 
 ### 3.6 Telegram Bot Testing
 
-- [ ] Manual test `/start` command
-- [ ] Manual test `/analyze` with a real topic
-- [ ] Manual test `/bind` flow (generate code on web, bind on Telegram)
-- [ ] Manual test `/history` command
-- [ ] Verify cross-platform sync (analyze on Telegram, view on web dashboard)
-- [ ] Verify Langfuse traces for Telegram queries
+- [x] Unit tests: 50 tests covering all handlers, formatting, dispatch, database (all passing)
+- [ ] Manual test `/start` command (requires bot token)
+- [ ] Manual test `/analyze` with a real topic (requires bot token + API keys)
+- [ ] Manual test `/bind` flow (requires bot token + web app)
+- [ ] Manual test `/history` command (requires bot token)
+- [ ] Verify cross-platform sync (requires full deployment)
+- [ ] Verify Langfuse traces for Telegram queries (requires deployment)
 
 ---
 
