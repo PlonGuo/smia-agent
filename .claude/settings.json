@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run *)",
+      "Bash(uv sync*)",
+      "Bash(python *)",
+      "Bash(afplay *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)"
+    ],
+    "deny": []
+  },
+  "enabledPlugins": {
+    "hookify@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true
+  }
+}
