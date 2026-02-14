@@ -26,13 +26,14 @@ export default function ReportDetail() {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
+    let cancelled = false;
     getReport(id)
-      .then(setReport)
+      .then((data) => { if (!cancelled) setReport(data); })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Report not found');
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Report not found');
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [id]);
 
   const handleDelete = async () => {
