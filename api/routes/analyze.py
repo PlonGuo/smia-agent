@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import traceback
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -55,8 +56,9 @@ async def analyze(
 
         return AnalyzeResponse(report=report)
     except Exception as exc:
-        logger.error("Analysis failed for query '%s': %s", body.query, exc)
+        tb = traceback.format_exc()
+        logger.error("Analysis failed for query '%s': %s\n%s", body.query, exc, tb)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Analysis failed: {exc}",
+            detail=f"Analysis failed: {type(exc).__name__}: {exc}",
         ) from exc
