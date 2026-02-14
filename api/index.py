@@ -119,4 +119,14 @@ async def debug_check():
     except ImportError as e:
         results["yars"] = f"not available: {e}"
 
+    # 6. Test Reddit fetch
+    try:
+        from services.crawler import fetch_reddit
+        reddit_posts = await fetch_reddit("test", limit=2)
+        results["reddit_test"] = f"ok: {len(reddit_posts)} posts"
+    except Exception as e:
+        import traceback
+        results["reddit_test"] = f"error: {type(e).__name__}: {e}"
+        results["reddit_traceback"] = traceback.format_exc()[-500:]
+
     return results
