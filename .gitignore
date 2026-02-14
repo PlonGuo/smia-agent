@@ -37,3 +37,10 @@ Thumbs.db
 *.egg-info/
 dist/
 build/
+
+# Logs
+*.log
+YARS.log
+
+# Claude project setting
+.claude/

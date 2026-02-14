@@ -8,10 +8,13 @@ if _api_dir not in sys.path:
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from core.langfuse_config import init_langfuse
 from routes.analyze import router as analyze_router
 from routes.reports import router as reports_router
 from routes.telegram import router as telegram_router
 from routes.auth import router as auth_router
+
+init_langfuse()
 
 app = FastAPI(title="SmIA API", version="0.1.0")
 

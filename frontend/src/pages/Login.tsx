@@ -13,7 +13,6 @@ import {
   Separator,
 } from '@chakra-ui/react';
 import { useAuth } from '../hooks/useAuth';
-import { toaster } from '../lib/toaster';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -30,7 +29,7 @@ export default function Login() {
       navigate('/dashboard');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Sign in failed';
-      toaster.error({ title: 'Login failed', description: message });
+      console.error('Login failed:', message);
     } finally {
       setLoading(false);
     }
@@ -41,7 +40,7 @@ export default function Login() {
       await signInWithGoogle();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'OAuth failed';
-      toaster.error({ title: 'Google sign-in failed', description: message });
+      console.error('Google sign-in failed:', message);
     }
   };
 

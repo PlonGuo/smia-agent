@@ -10,6 +10,7 @@ from core.auth import AuthenticatedUser, get_current_user
 from core.rate_limit import check_rate_limit
 from models.schemas import AnalyzeRequest, AnalyzeResponse
 from services.agent import analyze_topic
+from services.database import save_report
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,19 @@ async def analyze(
             user_id=user.user_id,
             source="web",
         )
+
+        # Persist to Supabase
+        try:
+            saved = save_report(
+                report_data=report.model_dump(exclude={"id", "created_at"}),
+                user_id=user.user_id,
+                access_token=user.access_token,
+            )
+            report.id = saved.get("id")
+            report.created_at = saved.get("created_at")
+        except Exception as save_exc:
+            logger.error("Failed to save report: %s", save_exc)
+
         return AnalyzeResponse(report=report)
     except Exception as exc:
         logger.error("Analysis failed for query '%s': %s", body.query, exc)

@@ -34,7 +34,7 @@ export default function SourceDistribution({ data }: SourceDistributionProps) {
             innerRadius={50}
             outerRadius={90}
             dataKey="value"
-            label={({ name, value }) => `${name}: ${value}`}
+            label={false}
           >
             {chartData.map((entry, i) => (
               <Cell key={i} fill={entry.color} />
