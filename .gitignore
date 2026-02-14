@@ -1,1 +1,33 @@
+# Environment
 local.env
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+libs/
+
+# Build outputs
+frontend/dist/
+__pycache__/
+*.pyc
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Vercel
+.vercel/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+*.egg-info/
+dist/
+build/

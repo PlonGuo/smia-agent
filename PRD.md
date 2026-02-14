@@ -1598,9 +1598,9 @@ Production Environment:
 
 ```json
 {
-  "buildCommand": "cd frontend && npm run build",
+  "buildCommand": "cd frontend && pnpm run build",
   "outputDirectory": "frontend/dist",
-  "installCommand": "cd frontend && npm install && cd ../api && pip install -r requirements.txt",
+  "installCommand": "cd frontend && pnpm install && cd ../api && pip install -r requirements.txt",
 
   "functions": {
     "api/index.py": {
@@ -1743,7 +1743,7 @@ docker-compose up -d
 
 ```bash
 # 1. Install Vercel CLI
-npm i -g vercel
+pnpm i -g vercel
 
 # 2. Link project
 vercel link

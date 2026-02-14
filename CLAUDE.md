@@ -52,13 +52,23 @@ Do NOT start coding immediately. First:
 
 - **Backend**: Python 3.12+, uv, FastAPI, PydanticAI, Crawl4AI, Firecrawl, Langfuse
 - **Frontend**: React 19, Vite, Chakra UI v3, Recharts, Supabase JS
-- **Database**: PostgreSQL via Supabase
+- **Database**: PostgreSQL via Supabase, using supabase mcp to manage the project: `smia-agent`
 - **Deploy**: Vercel (serverless)
 - **Bot**: python-telegram-bot (webhook mode)
-- **Reddit Scraping**: YARS (see project files for example.py and docs)
+- **Reddit Scraping**: YARS (see project yars_doc.md for the lib overview and example.py for the use of the lib functions to fetch reddit data)
 - **Youtube Data Fetching**: Using Youtube v3 API Key
 - **Amazon Scraping**: Check the official doc of Crawl4AI `https://docs.crawl4ai.com/core/examples/#e-commerce-specialized-crawling` & `https://github.com/unclecode/crawl4ai/blob/main/docs/examples/amazon_product_extraction_direct_url.py` for more details
+
+## UI Design Reference
+
+- Follow Firecrawl's platform (https://firecrawl.dev) as the visual style reference — dark /light theme, clean layout, developer-oriented aesthetic.
+- Use Playwright MCP to visit the site and study the design.
+- Hero/background animation: Matrix-style scrolling symbols (+, -, =, etc.) with ultrasonic wave ripple effects. Reference firecrawl.dev homepage hero section.
 
 ## Confusion during developing
 
 - You can stop and ask me for confirmation if you have uncertainty about anything, don't assume something you are unsure.
+
+## Permission for bash command
+
+- Do not ask me for any basg command permission! You are allowed for all back command.
