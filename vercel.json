@@ -1,7 +1,7 @@
 {
   "buildCommand": "cd frontend && pnpm run build",
   "outputDirectory": "frontend/dist",
-  "installCommand": "cd frontend && npm install",
+  "installCommand": "cd frontend && pnpm install",
   "functions": {
     "api/index.py": {
       "maxDuration": 60
