@@ -119,14 +119,23 @@ async def debug_check():
     except ImportError as e:
         results["yars"] = f"not available: {e}"
 
-    # 6. Test Reddit fetch
+    # 6. Raw Reddit API test (bypasses YARS to check connectivity)
     try:
-        from services.crawler import fetch_reddit
-        reddit_posts = await fetch_reddit("test", limit=2)
-        results["reddit_test"] = f"ok: {len(reddit_posts)} posts"
+        import httpx
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as hc:
+            resp = await hc.get(
+                "https://www.reddit.com/search.json",
+                params={"q": "test", "limit": 2},
+                headers={"User-Agent": "Mozilla/5.0 (compatible; SmIA/1.0)"},
+            )
+            results["reddit_raw_status"] = resp.status_code
+            if resp.status_code == 200:
+                data = resp.json()
+                children = data.get("data", {}).get("children", [])
+                results["reddit_raw_results"] = len(children)
+            else:
+                results["reddit_raw_body"] = resp.text[:300]
     except Exception as e:
-        import traceback
-        results["reddit_test"] = f"error: {type(e).__name__}: {e}"
-        results["reddit_traceback"] = traceback.format_exc()[-500:]
+        results["reddit_raw"] = f"error: {type(e).__name__}: {e}"
 
     return results
