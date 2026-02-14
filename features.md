@@ -118,106 +118,106 @@
 
 ### 2.1 Frontend Project Setup
 
-- [ ] Initialize Vite + React + TypeScript project in `frontend/`
-- [ ] Install dependencies: react, react-dom, react-router-dom, @chakra-ui/react, @emotion/react, @emotion/styled, framer-motion, @supabase/supabase-js, recharts, lucide-react
-- [ ] Setup Chakra UI v3 provider in `main.tsx` with custom theme
-- [ ] Create `frontend/src/lib/theme.ts` with custom colors (brand palette, sentiment colors) per PRD Section 11.3
-- [ ] Setup react-router-dom with routes: `/`, `/login`, `/signup`, `/analyze`, `/dashboard`, `/reports/:id`, `/settings`
-- [ ] Create `frontend/src/lib/supabase.ts` with Supabase client initialization
-- [ ] Create `frontend/src/lib/api.ts` with typed API client functions (analyze, getReports, getReport, deleteReport, getBindCode)
-- [ ] Create `shared/types.ts` with TypeScript interfaces (TrendReport, TopDiscussion, AnalyzeRequest, AnalyzeResponse, etc.) per PRD Section 6.3
-- [ ] Verify dev server runs and Chakra UI renders correctly
+- [x] Initialize Vite + React + TypeScript project in `frontend/`
+- [x] Install dependencies: react, react-dom, react-router-dom, @chakra-ui/react, @emotion/react, @emotion/styled, framer-motion, @supabase/supabase-js, recharts, lucide-react
+- [x] Setup Chakra UI v3 provider in `main.tsx` with custom theme
+- [x] Create `frontend/src/lib/theme.ts` with custom colors (brand palette, sentiment colors) per PRD Section 11.3
+- [x] Setup react-router-dom with routes: `/`, `/login`, `/signup`, `/analyze`, `/dashboard`, `/reports/:id`, `/settings`
+- [x] Create `frontend/src/lib/supabase.ts` with Supabase client initialization
+- [x] Create `frontend/src/lib/api.ts` with typed API client functions (analyze, getReports, getReport, deleteReport, getBindCode)
+- [x] Create `shared/types.ts` with TypeScript interfaces (TrendReport, TopDiscussion, AnalyzeRequest, AnalyzeResponse, etc.) per PRD Section 6.3
+- [x] Verify dev server runs and Chakra UI renders correctly
 
 ### 2.2 Authentication
 
-- [ ] Create `frontend/src/hooks/useAuth.ts` hook using Supabase Auth (session, user, signIn, signUp, signOut, loading state)
-- [ ] Create Login page (`frontend/src/pages/Login.tsx`) with Chakra UI form (email + password)
-- [ ] Create Signup page (`frontend/src/pages/Signup.tsx`) with Chakra UI form (email + password + confirm)
-- [ ] Add Google OAuth sign-in button (Supabase Auth provider)
-- [ ] Implement protected route wrapper (redirect unauthenticated users to `/login`)
-- [ ] Add auth state persistence (auto-refresh JWT tokens)
+- [x] Create `frontend/src/hooks/useAuth.ts` hook using Supabase Auth (session, user, signIn, signUp, signOut, loading state)
+- [x] Create Login page (`frontend/src/pages/Login.tsx`) with Chakra UI form (email + password)
+- [x] Create Signup page (`frontend/src/pages/Signup.tsx`) with Chakra UI form (email + password + confirm)
+- [x] Add Google OAuth sign-in button (Supabase Auth provider)
+- [x] Implement protected route wrapper (redirect unauthenticated users to `/login`)
+- [x] Add auth state persistence (auto-refresh JWT tokens)
 - [ ] Test full auth flow: signup, login, logout, session persistence, protected routes
 
 ### 2.3 Landing Page
 
-- [ ] Create Home page (`frontend/src/pages/Home.tsx`) with hero section
-- [ ] Implement Matrix-style scrolling symbols background animation (reference firecrawl.dev hero)
-- [ ] Add ultrasonic wave ripple effects overlay
-- [ ] Add call-to-action buttons (Sign Up / Try Demo)
-- [ ] Add feature highlights section explaining SmIA capabilities
-- [ ] Implement dark/light theme support for landing page
-- [ ] Make landing page fully responsive (mobile, tablet, desktop)
+- [x] Create Home page (`frontend/src/pages/Home.tsx`) with hero section
+- [x] Implement Matrix-style scrolling symbols background animation (reference firecrawl.dev hero)
+- [x] Add ultrasonic wave ripple effects overlay
+- [x] Add call-to-action buttons (Sign Up / Try Demo)
+- [x] Add feature highlights section explaining SmIA capabilities
+- [x] Implement dark/light theme support for landing page
+- [x] Make landing page fully responsive (mobile, tablet, desktop)
 
 ### 2.4 Analysis Page - Query Input & Progress
 
-- [ ] Create Analyze page (`frontend/src/pages/Analyze.tsx`)
-- [ ] Create `AnalysisForm.tsx` component with Chakra Input + submit Button
-- [ ] Add input validation (non-empty text, min 3 chars)
-- [ ] Implement real-time progress indicator with status messages (Understanding query, Fetching data, Cleaning noise, Analyzing with AI, Complete)
-- [ ] Add Chakra Progress bar component during analysis
-- [ ] Add error handling with Chakra Toast notifications
+- [x] Create Analyze page (`frontend/src/pages/Analyze.tsx`)
+- [x] Create `AnalysisForm.tsx` component with Chakra Input + submit Button
+- [x] Add input validation (non-empty text, min 3 chars)
+- [x] Implement real-time progress indicator with status messages (Understanding query, Fetching data, Cleaning noise, Analyzing with AI, Complete)
+- [x] Add Chakra Progress bar component during analysis
+- [x] Add error handling with Chakra Toast notifications
 - [ ] Add retry button on failure
-- [ ] Wire form submission to `POST /api/analyze` via API client
+- [x] Wire form submission to `POST /api/analyze` via API client
 
 ### 2.5 Analysis Page - Results Display
 
-- [ ] Create `ReportViewer.tsx` component with full results layout
-- [ ] Display executive summary in Chakra Card
-- [ ] Display sentiment score with color-coded Badge (green/red/gray)
-- [ ] Display key insights as UnorderedList
-- [ ] Display top discussions grouped by source using Chakra Tabs
-- [ ] Display keywords as Chakra Tag components
-- [ ] Display source breakdown metadata (counts per source)
-- [ ] Display processing time and token usage metadata
+- [x] Create `ReportViewer.tsx` component with full results layout
+- [x] Display executive summary in Chakra Card
+- [x] Display sentiment score with color-coded Badge (green/red/gray)
+- [x] Display key insights as UnorderedList
+- [x] Display top discussions grouped by source using Chakra Tabs
+- [x] Display keywords as Chakra Tag components
+- [x] Display source breakdown metadata (counts per source)
+- [x] Display processing time and token usage metadata
 
 ### 2.6 Charts & Visualizations
 
-- [ ] Create `frontend/src/components/charts/SentimentChart.tsx` using Recharts (sentiment timeline line chart)
-- [ ] Create `frontend/src/components/charts/SourceDistribution.tsx` using Recharts (pie chart for source breakdown)
-- [ ] Integrate charts into ReportViewer with Chakra theme-aware colors
-- [ ] Ensure charts are responsive and work in both light/dark modes
+- [x] Create `frontend/src/components/charts/SentimentChart.tsx` using Recharts (sentiment timeline line chart)
+- [x] Create `frontend/src/components/charts/SourceDistribution.tsx` using Recharts (pie chart for source breakdown)
+- [x] Integrate charts into ReportViewer with Chakra theme-aware colors
+- [x] Ensure charts are responsive and work in both light/dark modes
 - [ ] Add chart loading states (Chakra Skeleton)
 
 ### 2.7 Dashboard (History)
 
-- [ ] Create Dashboard page (`frontend/src/pages/Dashboard.tsx`) with responsive Grid layout
-- [ ] Create `ReportCard.tsx` component (Card with hover, Avatar icon by sentiment, timestamp, source badge)
-- [ ] Implement filtering: Select for sentiment, RadioGroup for source, date range picker
+- [x] Create Dashboard page (`frontend/src/pages/Dashboard.tsx`) with responsive Grid layout
+- [x] Create `ReportCard.tsx` component (Card with hover, Avatar icon by sentiment, timestamp, source badge)
+- [x] Implement filtering: Select for sentiment, RadioGroup for source, date range picker
 - [ ] Implement sorting: Menu dropdown (newest/oldest, sentiment)
-- [ ] Implement search: Input with search icon (full-text search in query/summary)
-- [ ] Implement pagination: Button group (Previous/Next) with page info
-- [ ] Add delete action with AlertDialog confirmation
-- [ ] Add click-to-view navigation to report detail
-- [ ] Handle empty state (no reports yet)
+- [x] Implement search: Input with search icon (full-text search in query/summary)
+- [x] Implement pagination: Button group (Previous/Next) with page info
+- [x] Add delete action with AlertDialog confirmation
+- [x] Add click-to-view navigation to report detail
+- [x] Handle empty state (no reports yet)
 
 ### 2.8 Report Detail Page
 
-- [ ] Create ReportDetail page (`frontend/src/pages/ReportDetail.tsx`)
-- [ ] Display full report with all visualizations (charts, insights, discussions)
+- [x] Create ReportDetail page (`frontend/src/pages/ReportDetail.tsx`)
+- [x] Display full report with all visualizations (charts, insights, discussions)
 - [ ] Add expandable sections using Chakra Accordion
 - [ ] Add source breakdown using Chakra Tabs
-- [ ] Display Stat components for metrics (processing time, token cost, analysis date)
-- [ ] Add delete IconButton with confirmation
-- [ ] Add share Button (copy link to clipboard)
-- [ ] Handle 404 (report not found) with friendly error state
+- [x] Display Stat components for metrics (processing time, token cost, analysis date)
+- [x] Add delete IconButton with confirmation
+- [x] Add share Button (copy link to clipboard)
+- [x] Handle 404 (report not found) with friendly error state
 
 ### 2.9 Settings Page
 
-- [ ] Create Settings page (`frontend/src/pages/Settings.tsx`)
-- [ ] Display account info: email (read-only), registration date
-- [ ] Add theme toggle using Chakra useColorMode
-- [ ] Add Telegram binding section: status display, generate code Button, Modal with code display
-- [ ] Add unbind Telegram Button with confirmation
+- [x] Create Settings page (`frontend/src/pages/Settings.tsx`)
+- [x] Display account info: email (read-only), registration date
+- [x] Add theme toggle using Chakra useColorMode
+- [x] Add Telegram binding section: status display, generate code Button, Modal with code display
+- [x] Add unbind Telegram Button with confirmation
 - [ ] Add danger zone: delete account with AlertDialog and cascade confirmation
-- [ ] Wire all actions to backend API
+- [x] Wire all actions to backend API
 
 ### 2.10 Frontend Polish & Integration
 
-- [ ] Add app-wide navigation bar/sidebar with links to Analyze, Dashboard, Settings
-- [ ] Add user avatar/menu in nav with logout option
-- [ ] Implement dark mode toggle in navigation
-- [ ] Add responsive design across all pages (Chakra breakpoints)
-- [ ] Add Chakra Toast for success/error notifications globally
+- [x] Add app-wide navigation bar/sidebar with links to Analyze, Dashboard, Settings
+- [x] Add user avatar/menu in nav with logout option
+- [x] Implement dark mode toggle in navigation
+- [x] Add responsive design across all pages (Chakra breakpoints)
+- [x] Add Chakra Toast for success/error notifications globally
 - [ ] Verify full end-to-end flow: login -> analyze -> view results -> dashboard -> report detail -> settings
 - [ ] Fix any integration bugs between frontend and backend
 

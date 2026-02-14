@@ -43,3 +43,20 @@ export interface AnalyzeResponse {
   report: TrendReport;
   message: string;
 }
+
+export interface ReportsListResponse {
+  reports: TrendReport[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface BindCodeResponse {
+  bind_code: string;
+  expires_at: string;
+}
+
+export interface BindConfirmRequest {
+  telegram_user_id: number;
+  bind_code: string;
+}

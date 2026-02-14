@@ -3,7 +3,8 @@
 
 ## Current Status
 - Phase 1: Backend Foundation — COMPLETE (core services + endpoints + 81 tests passing)
-- Ready to begin Phase 2: Web Frontend
+- Phase 2: Web Frontend — COMPLETE (all pages, components, charts, auth, navigation)
+- Ready to begin Phase 3: Telegram Bot
 
 ## Completed
 - [x] Initializer phase (skeleton, Supabase, YARS, frontend scaffold, git setup)
@@ -18,14 +19,41 @@
 - [x] Reports CRUD (routes/reports.py: list w/ filters, get by ID, delete)
 - [x] Auth/binding endpoints (routes/auth.py: bind code gen, confirm, unbind)
 - [x] 81 unit tests: models (21), routes (24), services (36) — all passing
+- [x] ChakraProvider v3 wired in main.tsx with custom theme system
+- [x] Typed API client with auto auth headers (api.ts)
+- [x] useAuth hook (Supabase Auth: signIn, signUp, signInWithGoogle, signOut)
+- [x] Login page (email/password + Google OAuth)
+- [x] Signup page (email/password/confirm + Google OAuth)
+- [x] ProtectedRoute wrapper (redirects to /login)
+- [x] Landing page with Matrix-style canvas animation + feature cards
+- [x] Analysis page with AnalysisForm + progress bar + ReportViewer
+- [x] ReportViewer component (summary, insights, discussions, keywords, charts, metadata)
+- [x] SentimentChart (Recharts line chart) and SourceDistribution (Recharts pie chart)
+- [x] Dashboard with filtering (sentiment), search, pagination, delete
+- [x] ReportCard component with sentiment badges, timestamps, delete
+- [x] Report detail page with full viewer, share, delete, back navigation
+- [x] Settings page (account info, theme toggle, Telegram bind/unbind, danger zone)
+- [x] Layout component with nav bar, color mode toggle, logout
+- [x] useColorMode hook (localStorage persistence, dark class toggling)
+- [x] Global toast notifications (Chakra Toaster)
+- [x] shared/types.ts expanded with ReportsListResponse, BindCodeResponse, BindConfirmRequest
 
-## Next Steps (Phase 2: Web Frontend)
-1. Authentication pages (Login, Signup with Supabase Auth)
-2. Analysis page with form and progress indicator
-3. Dashboard with report list, filtering, pagination
-4. Report detail page with charts (Recharts)
-5. Settings page with Telegram binding
-6. Homepage with hero section (Matrix animation)
+## Next Steps (Phase 3: Telegram Bot)
+1. Register bot with @BotFather, store token in env
+2. Create POST /telegram/webhook endpoint
+3. Implement /start, /help, /analyze, /bind, /history commands
+4. Account binding flow (validate code, link telegram_user_id)
+5. Cross-platform sync (Telegram reports visible on web dashboard)
+6. Bot error handling and rate limiting
+
+## Remaining Phase 2 items (deferred to Phase 4 polish)
+- Full auth flow E2E test (manual, requires Supabase email provider config)
+- Retry button on analysis failure
+- Chart skeleton loading states
+- Dashboard sorting dropdown
+- Accordion sections in report detail
+- Delete account with cascade confirmation
+- Full E2E flow verification
 
 ## Remaining Phase 1 items (deferred)
 - Rate limiting (100 req/hour per user)
@@ -39,7 +67,10 @@
 - YARS: git clone (not pip install) per user preference
 - pnpm instead of npm for frontend package management
 - Chakra UI v3 uses createSystem/defineConfig API (not v2's extendTheme)
+- Chakra UI v3 has no built-in useColorMode — custom hook toggles .dark class
+- Chakra UI v3 Toaster requires children render prop with ToastRoot/ToastTitle/etc.
 - Langfuse v3 API: `from langfuse import observe, get_client` (not v2 decorators)
 - PydanticAI v1.59: `agent._function_toolset.tools` for tool introspection
 - Supabase project: fueryelktpkkwipwyswu
 - crawl4ai added as dependency for Amazon scraping
+- Frontend .env not committed (in .gitignore), requires VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
