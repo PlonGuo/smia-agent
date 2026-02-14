@@ -62,13 +62,16 @@ async def debug_check():
         results["supabase_connection"] = f"error: {e}"
 
     # 3. Check OpenAI key validity
+    key = settings.effective_openai_key
+    results["openai_key_prefix"] = key[:8] + "..." if len(key) > 8 else "too_short"
+    results["openai_key_length"] = len(key)
     try:
         import openai
-        oc = openai.OpenAI(api_key=settings.effective_openai_key)
-        oc.models.list()
+        oc = openai.AsyncOpenAI(api_key=key)
+        await oc.models.list()
         results["openai_connection"] = "ok"
     except Exception as e:
-        results["openai_connection"] = f"error: {e}"
+        results["openai_connection"] = f"error: {type(e).__name__}: {e}"
 
     # 4. Check crawl4ai availability
     try:
