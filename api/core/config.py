@@ -1,4 +1,9 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
+
+# Find local.env from project root (parent of api/)
+_env_file = Path(__file__).resolve().parent.parent.parent / "local.env"
 
 
 class Settings(BaseSettings):
@@ -9,6 +14,7 @@ class Settings(BaseSettings):
 
     # AI Services
     openai_api_key: str = ""
+    open_ai_api_key: str = ""  # Alternative name from local.env
     firecrawl_api_key: str = ""
 
     # Langfuse
@@ -26,7 +32,12 @@ class Settings(BaseSettings):
     # Rate Limiting
     rate_limit_per_hour: int = 10
 
-    model_config = {"env_file": "local.env", "extra": "ignore"}
+    @property
+    def effective_openai_key(self) -> str:
+        """Return whichever OpenAI key is set."""
+        return self.openai_api_key or self.open_ai_api_key
+
+    model_config = {"env_file": str(_env_file), "extra": "ignore"}
 
 
 settings = Settings()

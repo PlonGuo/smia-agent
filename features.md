@@ -10,98 +10,98 @@
 
 ### 1.1 Project Setup
 
-- [ ] Initialize uv project with `pyproject.toml` at repo root (Python 3.12+)
-- [ ] Create backend directory structure: `api/`, `api/routes/`, `api/services/`, `api/models/`, `api/core/`
-- [ ] Create frontend directory structure: `frontend/`, `frontend/src/`, etc. (scaffolding only)
-- [ ] Create shared directory: `shared/`
-- [ ] Add `.env.example` with all required environment variable placeholders
-- [ ] Add `.gitignore` covering Python, Node, `.env`, IDE files, `__pycache__`, etc.
-- [ ] Install core backend dependencies (fastapi, mangum, pydantic, pydantic-settings, pydantic-ai, openai, langfuse, crawl4ai, firecrawl-py, python-telegram-bot, supabase, python-dotenv, httpx, yars)
-- [ ] Create `api/core/config.py` with environment config using `pydantic-settings` (load all keys from env)
-- [ ] Create `api/index.py` FastAPI app entrypoint with Mangum handler
-- [ ] Create `vercel.json` with function config and rewrite rules per PRD Section 10.2
-- [ ] Verify FastAPI app starts locally with `uvicorn` and returns a health check
+- [x] Initialize uv project with `pyproject.toml` at repo root (Python 3.12+)
+- [x] Create backend directory structure: `api/`, `api/routes/`, `api/services/`, `api/models/`, `api/core/`
+- [x] Create frontend directory structure: `frontend/`, `frontend/src/`, etc. (scaffolding only)
+- [x] Create shared directory: `shared/`
+- [x] Add `.env.example` with all required environment variable placeholders
+- [x] Add `.gitignore` covering Python, Node, `.env`, IDE files, `__pycache__`, etc.
+- [x] Install core backend dependencies (fastapi, mangum, pydantic, pydantic-settings, pydantic-ai, openai, langfuse, firecrawl-py, python-telegram-bot, supabase, python-dotenv, httpx)
+- [x] Create `api/core/config.py` with environment config using `pydantic-settings` (load all keys from env)
+- [x] Create `api/index.py` FastAPI app entrypoint with Mangum handler
+- [x] Create `vercel.json` with function config and rewrite rules per PRD Section 10.2
+- [x] Verify FastAPI app starts locally with `uvicorn` and returns a health check
 
 ### 1.2 Database Setup (Supabase)
 
-- [ ] Create Supabase project (if not already done)
-- [ ] Create `user_bindings` table with schema per PRD Section 6.1 (id, user_id, telegram_user_id, bind_code, code_expires_at, bound_at, created_at)
-- [ ] Create `analysis_reports` table with full schema per PRD Section 6.1 (all columns including JSONB fields, checks, indexes)
-- [ ] Enable Row Level Security (RLS) on `analysis_reports`
-- [ ] Create RLS policy: users can only access own reports (`auth.uid() = user_id`)
-- [ ] Enable RLS on `user_bindings`
-- [ ] Create RLS policy: users can only access own bindings
-- [ ] Create all database indexes (user_id, created_at DESC, sentiment, full-text search on query)
-- [ ] Create `api/services/database.py` with Supabase client initialization and basic CRUD helpers
+- [x] Create Supabase project (if not already done)
+- [x] Create `user_bindings` table with schema per PRD Section 6.1 (id, user_id, telegram_user_id, bind_code, code_expires_at, bound_at, created_at)
+- [x] Create `analysis_reports` table with full schema per PRD Section 6.1 (all columns including JSONB fields, checks, indexes)
+- [x] Enable Row Level Security (RLS) on `analysis_reports`
+- [x] Create RLS policy: users can only access own reports (`auth.uid() = user_id`)
+- [x] Enable RLS on `user_bindings`
+- [x] Create RLS policy: users can only access own bindings
+- [x] Create all database indexes (user_id, created_at DESC, sentiment, full-text search on query)
+- [x] Create `api/services/database.py` with Supabase client initialization and basic CRUD helpers
 
 ### 1.3 Pydantic Models
 
-- [ ] Create `api/models/schemas.py` with `TopDiscussion` model
-- [ ] Create `TrendReport` model with all fields per PRD Section 6.2 (topic, sentiment, sentiment_score, summary, key_insights, top_discussions, keywords, source_breakdown, charts_data, metadata)
-- [ ] Create `AnalyzeRequest` model with validation (min_length=3, max_length=200)
-- [ ] Create `AnalyzeResponse` model
-- [ ] Create `ReportsListResponse` model with pagination fields
-- [ ] Create `BindCodeResponse` and `BindConfirmRequest` models
-- [ ] Write unit tests for model validation (valid/invalid inputs, edge cases)
+- [x] Create `api/models/schemas.py` with `TopDiscussion` model
+- [x] Create `TrendReport` model with all fields per PRD Section 6.2 (topic, sentiment, sentiment_score, summary, key_insights, top_discussions, keywords, source_breakdown, charts_data, metadata)
+- [x] Create `AnalyzeRequest` model with validation (min_length=3, max_length=200)
+- [x] Create `AnalyzeResponse` model
+- [x] Create `ReportsListResponse` model with pagination fields
+- [x] Create `BindCodeResponse` and `BindConfirmRequest` models
+- [x] Write unit tests for model validation (valid/invalid inputs, edge cases)
 
 ### 1.4 Crawler Service
 
-- [ ] Create `api/services/crawler.py` with base crawler interface
-- [ ] Implement Reddit fetching using YARS library (search_reddit, scrape_post_details) -- see `yars_doc.md` and `example.py`
-- [ ] Implement YouTube data fetching using YouTube Data API v3 (search + comment threads)
-- [ ] Implement Amazon review scraping using Crawl4AI (see Crawl4AI docs for e-commerce extraction)
-- [ ] Add Firecrawl as fallback scraper for when Crawl4AI fails (timeout/error)
-- [ ] Add 45-second timeout per source crawl
-- [ ] Add error handling: graceful degradation when individual sources fail
-- [ ] Write unit tests for crawler service (mock external calls, test timeout handling, test fallback logic)
+- [x] Create `api/services/crawler.py` with base crawler interface
+- [x] Implement Reddit fetching using YARS library (search_reddit, scrape_post_details) -- see `yars_doc.md` and `example.py`
+- [x] Implement YouTube data fetching using YouTube Data API v3 (search + comment threads)
+- [x] Implement Amazon review scraping using Crawl4AI (see Crawl4AI docs for e-commerce extraction)
+- [x] Add Firecrawl as fallback scraper for when Crawl4AI fails (timeout/error)
+- [x] Add 45-second timeout per source crawl
+- [x] Add error handling: graceful degradation when individual sources fail
+- [x] Write unit tests for crawler service (mock external calls, test timeout handling, test fallback logic)
 
 ### 1.5 PydanticAI Agent & Tools
 
-- [ ] Create `api/services/tools.py` with `fetch_reddit_tool` using YARS-based crawler
-- [ ] Create `fetch_youtube_tool` using YouTube API-based crawler
-- [ ] Create `fetch_amazon_tool` using Crawl4AI-based crawler
-- [ ] Create `clean_noise_tool` that uses LLM to filter irrelevant content from raw data
-- [ ] Create `api/services/agent.py` with PydanticAI agent configuration (model, system prompt, result_type=TrendReport)
-- [ ] Register all tools with the PydanticAI agent
-- [ ] Implement parallel tool execution for multi-source fetching
+- [x] Create `api/services/tools.py` with `fetch_reddit_tool` using YARS-based crawler
+- [x] Create `fetch_youtube_tool` using YouTube API-based crawler
+- [x] Create `fetch_amazon_tool` using Crawl4AI-based crawler
+- [x] Create `clean_noise_tool` that uses LLM to filter irrelevant content from raw data
+- [x] Create `api/services/agent.py` with PydanticAI agent configuration (model, system prompt, result_type=TrendReport)
+- [x] Register all tools with the PydanticAI agent
+- [x] Implement parallel tool execution for multi-source fetching
 - [ ] Write integration test: run agent with a test query and verify TrendReport output shape
 - [ ] Verify structured output validation works (auto-retry on validation failure)
 
 ### 1.6 Langfuse Integration
 
-- [ ] Create `api/core/langfuse_config.py` with Langfuse client initialization
-- [ ] Add `@observe()` decorator to the main analysis function in `agent.py`
-- [ ] Add Langfuse trace metadata (user_id, session_id, source, query_type)
-- [ ] Ensure each tool call is traced (fetch_reddit, fetch_youtube, fetch_amazon, clean_noise)
-- [ ] Add token usage tracking to analysis results
+- [x] Create `api/core/langfuse_config.py` with Langfuse client initialization
+- [x] Add `@observe()` decorator to the main analysis function in `agent.py`
+- [x] Add Langfuse trace metadata (user_id, session_id, source, query_type)
+- [x] Ensure each tool call is traced (fetch_reddit, fetch_youtube, fetch_amazon, clean_noise)
+- [x] Add token usage tracking to analysis results
 - [ ] Write test to verify traces appear in Langfuse dashboard (manual verification step)
 
 ### 1.7 API Endpoints - Analysis
 
-- [ ] Create `api/routes/analyze.py` with `POST /api/analyze` endpoint
-- [ ] Implement Supabase JWT auth dependency in `api/core/dependencies.py` (extract user from Authorization header)
-- [ ] Wire analysis endpoint to PydanticAI agent, save result to database
-- [ ] Add processing time measurement and store in report
-- [ ] Add Langfuse trace_id to saved report
+- [x] Create `api/routes/analyze.py` with `POST /api/analyze` endpoint
+- [x] Implement Supabase JWT auth dependency in `api/core/auth.py` (extract user from Authorization header)
+- [x] Wire analysis endpoint to PydanticAI agent, save result to database
+- [x] Add processing time measurement and store in report
+- [x] Add Langfuse trace_id to saved report
 - [ ] Add rate limiting: 100 requests/hour per user (web)
-- [ ] Add error handling: 400 (invalid query), 422 (source fetch failure), 429 (rate limit), 500 (analysis failure)
-- [ ] Write API tests for `/api/analyze` (mock agent, test auth, test error cases)
+- [x] Add error handling: 400 (invalid query), 422 (source fetch failure), 429 (rate limit), 500 (analysis failure)
+- [x] Write API tests for `/api/analyze` (mock agent, test auth, test error cases)
 
 ### 1.8 API Endpoints - Reports CRUD
 
-- [ ] Create `api/routes/reports.py` with `GET /api/reports` (list with pagination)
-- [ ] Implement query params: page, per_page, sentiment, source, from_date, to_date, search (full-text)
-- [ ] Implement `GET /api/reports/:id` (single report detail)
-- [ ] Implement `DELETE /api/reports/:id` (delete with ownership check)
-- [ ] Ensure all endpoints enforce auth and user ownership
-- [ ] Write API tests for reports CRUD (list, filter, get, delete, auth, 404 cases)
+- [x] Create `api/routes/reports.py` with `GET /api/reports` (list with pagination)
+- [x] Implement query params: page, per_page, sentiment, source, from_date, to_date, search (full-text)
+- [x] Implement `GET /api/reports/:id` (single report detail)
+- [x] Implement `DELETE /api/reports/:id` (delete with ownership check)
+- [x] Ensure all endpoints enforce auth and user ownership
+- [x] Write API tests for reports CRUD (list, filter, get, delete, auth, 404 cases)
 
 ### 1.9 API Endpoints - Auth & Binding
 
-- [ ] Create `api/routes/auth.py` with `GET /api/bind/code` (generate 6-digit binding code, valid 15 min)
-- [ ] Implement `POST /api/bind/confirm` for confirming binding from web side (if needed)
-- [ ] Add duplicate binding prevention logic
-- [ ] Write tests for binding code generation and validation
+- [x] Create `api/routes/auth.py` with `GET /api/bind/code` (generate 6-digit binding code, valid 10 min)
+- [x] Implement `POST /api/bind/confirm` for confirming binding from bot side
+- [x] Add duplicate binding prevention logic (upsert on user_id in save_bind_code)
+- [x] Write tests for binding code generation and validation
 
 ### 1.10 Backend Integration Testing
 

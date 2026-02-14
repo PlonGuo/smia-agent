@@ -49,3 +49,13 @@ class ReportsListResponse(BaseModel):
     total: int
     page: int
     per_page: int
+
+
+class BindCodeResponse(BaseModel):
+    bind_code: str
+    expires_at: datetime
+
+
+class BindConfirmRequest(BaseModel):
+    telegram_user_id: int
+    bind_code: str = Field(min_length=6, max_length=6)
