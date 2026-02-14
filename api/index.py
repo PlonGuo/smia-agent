@@ -97,11 +97,26 @@ async def debug_check():
     except ImportError:
         results["crawl4ai"] = "not installed (expected on Vercel)"
 
-    # 5. Check YARS availability
+    # 5. Check YARS availability and path resolution
+    api_dir = Path(__file__).resolve().parent
+    yars_src = api_dir.parent / "libs" / "yars" / "src"
+    results["yars_expected_path"] = str(yars_src)
+    results["yars_path_exists"] = yars_src.exists()
+    if yars_src.exists():
+        results["yars_path_contents"] = [str(p.name) for p in yars_src.iterdir()]
+    # Also check what the crawler sees
+    crawler_file = api_dir / "services" / "crawler.py"
+    crawler_yars_src = crawler_file.resolve().parent.parent.parent / "libs" / "yars" / "src"
+    results["crawler_yars_path"] = str(crawler_yars_src)
+    results["crawler_yars_exists"] = crawler_yars_src.exists()
+
+    # Try importing with the correct path
+    if str(yars_src) not in sys.path and yars_src.exists():
+        sys.path.insert(0, str(yars_src))
     try:
         from yars.yars import YARS
         results["yars"] = "available"
-    except ImportError:
-        results["yars"] = "not available (expected on Vercel)"
+    except ImportError as e:
+        results["yars"] = f"not available: {e}"
 
     return results
