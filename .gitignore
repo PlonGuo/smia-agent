@@ -23,6 +23,12 @@ __pycache__/
 # Vercel
 .vercel/
 
+# Screenshots
+screen-shot/
+
+# Playwright MCP
+.playwright-mcp/
+
 # OS
 .DS_Store
 Thumbs.db

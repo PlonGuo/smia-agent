@@ -96,6 +96,11 @@ Do NOT start coding immediately. First:
 - Use Playwright MCP to visit the site and study the design.
 - Hero/background animation: Matrix-style scrolling symbols (+, -, =, etc.) with ultrasonic wave ripple effects. Reference firecrawl.dev homepage hero section.
 
+## Screenshots
+
+- **All screenshots taken by Playwright MCP must be saved to the `screen-shot/` folder** (use the `filename` parameter, e.g. `filename: "screen-shot/my-screenshot.png"`). Never leave screenshots in the project root directory.
+- The `screen-shot/` folder is gitignored — screenshots are for local review only.
+
 ## Confusion during developing
 
 - You can stop and ask me for confirmation if you have uncertainty about anything, don't assume something you are unsure.
