@@ -1,5 +1,6 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Box, Heading } from '@chakra-ui/react';
+import { useColorMode } from '../../hooks/useColorMode';
 
 const COLORS: Record<string, string> = {
   reddit: '#FF4500',
@@ -17,6 +18,9 @@ export default function SourceDistribution({ data }: SourceDistributionProps) {
     value,
     color: COLORS[name] || '#888',
   }));
+
+  const { colorMode } = useColorMode();
+  const isDark = colorMode === 'dark';
 
   if (chartData.length === 0) return null;
 
@@ -42,10 +46,12 @@ export default function SourceDistribution({ data }: SourceDistributionProps) {
           </Pie>
           <Tooltip
             contentStyle={{
-              background: '#1a1a2e',
-              border: '1px solid #333',
+              background: isDark ? '#1a1a2e' : '#ffffff',
+              color: isDark ? '#e2e8f0' : '#1a202c',
+              border: isDark ? '1px solid #333' : '1px solid #e2e8f0',
               borderRadius: '8px',
             }}
+            cursor={{ fill: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}
           />
           <Legend />
         </PieChart>

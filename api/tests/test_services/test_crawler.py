@@ -243,15 +243,18 @@ class TestFetchAmazon:
     """Tests for fetch_amazon()."""
 
     @pytest.mark.asyncio
-    async def test_returns_crawl4ai_result(self):
+    async def test_returns_search_content_when_no_product_urls(self):
+        """When search page has no product URLs, returns trimmed search content."""
         with patch("services.crawler._crawl4ai_fetch", new_callable=AsyncMock) as mock_c4a:
-            mock_c4a.return_value = "# Amazon Product\nGreat product!"
+            mock_c4a.return_value = "# Amazon Product\nGreat product reviews here!"
             with patch("services.crawler._firecrawl_fetch", new_callable=AsyncMock) as mock_fc:
                 result = await fetch_amazon("test product")
 
         assert len(result) == 1
-        assert result[0]["content"] == "# Amazon Product\nGreat product!"
         assert result[0]["source"] == "amazon"
+        assert "test product" in result[0]["title"]
+        # Crawl4AI was called once for the search page
+        mock_c4a.assert_called_once()
         mock_fc.assert_not_called()
 
     @pytest.mark.asyncio
@@ -263,17 +266,38 @@ class TestFetchAmazon:
                 result = await fetch_amazon("test product")
 
         assert len(result) == 1
-        assert result[0]["content"] == "# Firecrawl result"
+        assert result[0]["source"] == "amazon"
 
     @pytest.mark.asyncio
-    async def test_returns_empty_when_both_fail(self):
+    async def test_raises_when_both_fail(self):
         with patch("services.crawler._crawl4ai_fetch", new_callable=AsyncMock) as mock_c4a:
             mock_c4a.return_value = None
             with patch("services.crawler._firecrawl_fetch", new_callable=AsyncMock) as mock_fc:
                 mock_fc.return_value = None
-                result = await fetch_amazon("test product")
+                with pytest.raises(RuntimeError, match="Amazon crawling failed"):
+                    await fetch_amazon("test product")
 
-        assert result == []
+    @pytest.mark.asyncio
+    async def test_scrapes_product_pages_when_urls_found(self):
+        """When search results contain product URLs, scrapes individual pages."""
+        search_content = (
+            "Results for test\n"
+            "https://www.amazon.com/Test-Product/dp/B0TSTPRD01 - Product 1\n"
+        )
+
+        async def mock_crawl4ai(url):
+            if "/s?k=" in url:
+                return search_content
+            if "B0TSTPRD01" in url:
+                return "### Customers say\nGreat product with many features.\n### Top reviews from the United States\nAmazing quality!"
+            return None
+
+        with patch("services.crawler._crawl4ai_fetch", new_callable=AsyncMock, side_effect=mock_crawl4ai):
+            with patch("services.crawler._firecrawl_fetch", new_callable=AsyncMock, return_value=None):
+                result = await fetch_amazon("test product", max_products=1)
+
+        assert len(result) == 1
+        assert "Customers say" in result[0]["content"]
 
 
 class TestCrawl4aiFetch:
