@@ -6,7 +6,6 @@ local.env
 
 # Dependencies
 node_modules/
-libs/
 
 # Build outputs
 frontend/dist/
