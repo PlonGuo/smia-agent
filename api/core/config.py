@@ -34,8 +34,8 @@ class Settings(BaseSettings):
 
     @property
     def effective_openai_key(self) -> str:
-        """Return whichever OpenAI key is set."""
-        return self.openai_api_key or self.open_ai_api_key
+        """Return whichever OpenAI key is set, stripped of whitespace."""
+        return (self.openai_api_key or self.open_ai_api_key).strip()
 
     model_config = {"env_file": str(_env_file), "extra": "ignore"}
 
