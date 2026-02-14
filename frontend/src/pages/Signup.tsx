@@ -67,12 +67,10 @@ export default function Signup() {
 
   return (
     <Box
-      minH="100vh"
       display="flex"
       alignItems="center"
       justifyContent="center"
-      bg={{ base: 'gray.50', _dark: 'gray.950' }}
-      px={4}
+      minH="calc(100vh - 200px)"
     >
       <Card.Root maxW="md" w="full">
         <Card.Header textAlign="center">
@@ -118,7 +116,7 @@ export default function Signup() {
               </Field.Root>
               <Button
                 type="submit"
-                colorPalette="blue"
+                colorPalette="green"
                 w="full"
                 loading={loading}
                 loadingText="Creating account..."
@@ -137,7 +135,7 @@ export default function Signup() {
         <Card.Footer justifyContent="center">
           <Text fontSize="sm" color="fg.muted">
             Already have an account?{' '}
-            <Link asChild colorPalette="blue">
+            <Link asChild colorPalette="green">
               <RouterLink to="/login">Sign in</RouterLink>
             </Link>
           </Text>

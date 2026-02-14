@@ -43,21 +43,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </RouterLink>
         </Link>
 
-        <HStack gap={1} ml={8}>
-          {NAV_ITEMS.map(({ label, path, icon: Icon }) => (
-            <Link asChild key={path}>
-              <RouterLink to={path}>
-                <Button
-                  variant={location.pathname === path ? 'subtle' : 'ghost'}
-                  size="sm"
-                >
-                  <Icon size={16} />
-                  {label}
-                </Button>
-              </RouterLink>
-            </Link>
-          ))}
-        </HStack>
+        {user && (
+          <HStack gap={1} ml={8}>
+            {NAV_ITEMS.map(({ label, path, icon: Icon }) => (
+              <Link asChild key={path}>
+                <RouterLink to={path}>
+                  <Button
+                    variant={location.pathname === path ? 'subtle' : 'ghost'}
+                    size="sm"
+                  >
+                    <Icon size={16} />
+                    {label}
+                  </Button>
+                </RouterLink>
+              </Link>
+            ))}
+          </HStack>
+        )}
 
         <Spacer />
 
@@ -70,11 +72,35 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           >
             {colorMode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </IconButton>
-          {user && (
+          {user ? (
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut size={16} />
               Logout
             </Button>
+          ) : (
+            <HStack gap={1}>
+              <Link asChild>
+                <RouterLink to="/login">
+                  <Button
+                    variant={location.pathname === '/login' ? 'subtle' : 'ghost'}
+                    size="sm"
+                  >
+                    Sign In
+                  </Button>
+                </RouterLink>
+              </Link>
+              <Link asChild>
+                <RouterLink to="/signup">
+                  <Button
+                    variant={location.pathname === '/signup' ? 'solid' : 'outline'}
+                    colorPalette="green"
+                    size="sm"
+                  >
+                    Sign Up
+                  </Button>
+                </RouterLink>
+              </Link>
+            </HStack>
           )}
         </HStack>
       </Flex>
