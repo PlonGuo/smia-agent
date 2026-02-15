@@ -31,10 +31,20 @@ if str(_yars_src) not in sys.path:
 
 
 def _get_yars():
-    """Lazy-import YARS to avoid import-time side effects (logging config)."""
+    """Lazy-import YARS to avoid import-time side effects (logging config).
+
+    When SCRAPER_API_KEY is configured, passes a ScraperAPI proxy to YARS
+    so Reddit requests aren't blocked by datacenter IP restrictions.
+    """
     from yars.yars import YARS  # type: ignore[import-untyped]
 
-    return YARS(timeout=CRAWL_TIMEOUT)
+    proxy = None
+    api_key = settings.scraper_api_key.strip()
+    if api_key:
+        proxy = f"http://scraperapi:{api_key}@proxy-server.scraperapi.com:8001"
+        logger.info("YARS using ScraperAPI proxy")
+
+    return YARS(proxy=proxy, timeout=CRAWL_TIMEOUT)
 
 
 async def fetch_reddit(

@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # YouTube
     youtube_api_key: str = ""
 
+    # Proxy (ScraperAPI)
+    scraper_api_key: str = ""
+
     # Rate Limiting
     rate_limit_per_hour: int = 10
 

@@ -119,25 +119,17 @@ async def debug_check():
     except ImportError as e:
         results["yars"] = f"not available: {e}"
 
-    # 6. Raw Reddit API test — try multiple domains
-    import httpx
-    for domain in ["www.reddit.com", "old.reddit.com"]:
-        try:
-            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as hc:
-                resp = await hc.get(
-                    f"https://{domain}/search.json",
-                    params={"q": "test", "limit": 2},
-                    headers={"User-Agent": "SmIA/1.0 (social media intelligence agent)"},
-                )
-                key = domain.replace(".", "_")
-                results[f"reddit_{key}_status"] = resp.status_code
-                if resp.status_code == 200:
-                    data = resp.json()
-                    children = data.get("data", {}).get("children", [])
-                    results[f"reddit_{key}_results"] = len(children)
-                else:
-                    results[f"reddit_{key}_body"] = resp.text[:200]
-        except Exception as e:
-            results[f"reddit_{domain}"] = f"error: {type(e).__name__}: {e}"
+    # 6. Test Reddit fetch via YARS (with ScraperAPI proxy if configured)
+    results["scraper_api_key"] = bool(settings.scraper_api_key.strip())
+    try:
+        from services.crawler import fetch_reddit
+        reddit_posts = await fetch_reddit("test", limit=2)
+        results["reddit_fetch"] = f"ok: {len(reddit_posts)} posts"
+        if reddit_posts:
+            results["reddit_sample_title"] = reddit_posts[0].get("title", "")[:80]
+    except Exception as e:
+        import traceback
+        results["reddit_fetch"] = f"error: {type(e).__name__}: {e}"
+        results["reddit_traceback"] = traceback.format_exc()[-500:]
 
     return results
