@@ -255,7 +255,20 @@ export default function Settings() {
             <Heading size="md">Telegram Integration</Heading>
           </Card.Header>
           <Card.Body>
-            <Stack gap={4}>{renderBindingContent()}</Stack>
+            <Stack gap={4}>
+              <Box
+                p={3}
+                borderRadius="md"
+                bg={{ base: 'gray.50', _dark: 'gray.800' }}
+              >
+                <Text fontSize="sm" color="fg.muted">
+                  Open Telegram on your phone, search for{' '}
+                  <Code>@plonguo_bot</Code>, open the chat, and send{' '}
+                  <Code>/start</Code> to begin.
+                </Text>
+              </Box>
+              {renderBindingContent()}
+            </Stack>
           </Card.Body>
         </Card.Root>
 
