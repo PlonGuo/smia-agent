@@ -19,9 +19,16 @@ def init_langfuse() -> None:
     Langfuse v3 reads from env vars automatically.  We set them from our
     settings so that ``@observe()`` decorators and ``get_client()`` work.
 
-    If keys are not configured, Langfuse is disabled gracefully (no error).
+    If keys are not configured or LANGFUSE_ENABLED=false, Langfuse is
+    disabled gracefully (no error).
     """
     global _langfuse_enabled
+
+    # Allow explicitly disabling (e.g. during tests)
+    if os.environ.get("LANGFUSE_ENABLED", "").lower() == "false":
+        logger.info("Langfuse explicitly disabled via LANGFUSE_ENABLED=false")
+        return
+
     if settings.langfuse_public_key and settings.langfuse_secret_key:
         os.environ["LANGFUSE_PUBLIC_KEY"] = settings.langfuse_public_key
         os.environ["LANGFUSE_SECRET_KEY"] = settings.langfuse_secret_key
@@ -44,12 +51,16 @@ def trace_metadata(
     if not _langfuse_enabled:
         return
     try:
+        env = settings.environment
+        trace_tags = list(tags or [])
+        trace_tags.append(env)
+
         client = get_client()
         client.update_current_trace(
             user_id=user_id,
             session_id=session_id,
-            tags=tags or [],
-            metadata={"source": source},
+            tags=trace_tags,
+            metadata={"source": source, "environment": env},
         )
     except Exception:
         pass

@@ -16,13 +16,6 @@ import { supabase } from '../lib/supabase';
 import { toaster } from '../lib/toaster';
 import { Moon, Sun, LinkIcon, CheckCircle, Clock } from 'lucide-react';
 
-interface BindingRow {
-  telegram_user_id: number | null;
-  bind_code: string | null;
-  code_expires_at: string | null;
-  bound_at: string | null;
-}
-
 export default function Settings() {
   const { user, signOut } = useAuth();
   const { colorMode, toggleColorMode } = useColorMode();
@@ -71,35 +64,26 @@ export default function Settings() {
     fetchBinding();
   }, [user]);
 
-  // Subscribe to Realtime changes on user_bindings
+  // Poll for binding completion while in pending state
   useEffect(() => {
-    if (!user) return;
+    if (!user || bindingStatus !== 'pending') return;
 
-    const channel = supabase
-      .channel('binding-status')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_bindings',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const row = payload.new as BindingRow;
-          if (row.telegram_user_id) {
-            setBindingStatus('linked');
-            setBindCode(null);
-            toaster.success({ title: 'Telegram linked successfully!' });
-          }
-        }
-      )
-      .subscribe();
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from('user_bindings')
+        .select('telegram_user_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
+      if (data?.telegram_user_id) {
+        setBindingStatus('linked');
+        setBindCode(null);
+        toaster.success({ title: 'Telegram linked successfully!' });
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [user, bindingStatus]);
 
   const handleGenerateCode = async () => {
     setBindLoading(true);

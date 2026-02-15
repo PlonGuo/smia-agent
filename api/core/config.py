@@ -1,9 +1,20 @@
+import os
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
 
 # Find local.env from project root (parent of api/)
 _env_file = Path(__file__).resolve().parent.parent.parent / "local.env"
+
+
+def _detect_environment() -> str:
+    """Detect runtime environment: production, preview, or development."""
+    vercel_env = os.environ.get("VERCEL_ENV", "")
+    if vercel_env:
+        return vercel_env  # "production" or "preview"
+    if os.environ.get("VERCEL"):
+        return "vercel-dev"
+    return "development"
 
 
 class Settings(BaseSettings):
@@ -35,6 +46,9 @@ class Settings(BaseSettings):
     # Rate Limiting
     rate_limit_per_hour: int = 10
 
+    # Environment (auto-detected)
+    environment: str = ""
+
     @property
     def effective_openai_key(self) -> str:
         """Return whichever OpenAI key is set, stripped of whitespace."""
@@ -44,3 +58,5 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+if not settings.environment:
+    settings.environment = _detect_environment()

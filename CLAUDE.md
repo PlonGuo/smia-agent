@@ -43,10 +43,9 @@ Do NOT start coding immediately. First:
 - **Incremental progress**: Complete ONE feature at a time from `features.md`. Check it off when done.
 - **Always update `claude-progress.txt`** before ending a session with: what was done, what's next, any blockers.
 - **Test as you go**: Write tests for each feature. Run them before moving on.
-- **Git discipline**: Commit after each completed feature with a descriptive message.
+- **Git discipline**: Do NOT git add, commit, or push automatically. Only run git operations when the user explicitly asks.
 - **Never skip the PRD**: All implementation decisions must align with `PRD.md`. If ambiguous, note it in progress file.
 - **Use MCP tools actively**: Playwright for docs/learning, Supabase for DB operations.
-- **Push each task to Github**: After comprehensive test for a task/feature, create a git commit and push it to github.
 - **Package managers**: Use `uv` for backend (Python), `pnpm` for frontend (Node.js). Never use npm or pip directly.
 
 ## Testing Strategy

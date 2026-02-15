@@ -1,5 +1,6 @@
 """Shared test fixtures for SmIA API tests."""
 
+import os
 import sys
 from pathlib import Path
 
@@ -9,6 +10,11 @@ from httpx import ASGITransport, AsyncClient
 
 # Add api/ to Python path so imports work
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Disable Langfuse during tests so @observe traces don't pollute the dashboard
+os.environ.pop("LANGFUSE_PUBLIC_KEY", None)
+os.environ.pop("LANGFUSE_SECRET_KEY", None)
+os.environ["LANGFUSE_ENABLED"] = "false"
 
 from core.auth import AuthenticatedUser, get_current_user  # noqa: E402
 from index import app  # noqa: E402
