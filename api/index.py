@@ -119,23 +119,25 @@ async def debug_check():
     except ImportError as e:
         results["yars"] = f"not available: {e}"
 
-    # 6. Raw Reddit API test (bypasses YARS to check connectivity)
-    try:
-        import httpx
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as hc:
-            resp = await hc.get(
-                "https://www.reddit.com/search.json",
-                params={"q": "test", "limit": 2},
-                headers={"User-Agent": "Mozilla/5.0 (compatible; SmIA/1.0)"},
-            )
-            results["reddit_raw_status"] = resp.status_code
-            if resp.status_code == 200:
-                data = resp.json()
-                children = data.get("data", {}).get("children", [])
-                results["reddit_raw_results"] = len(children)
-            else:
-                results["reddit_raw_body"] = resp.text[:300]
-    except Exception as e:
-        results["reddit_raw"] = f"error: {type(e).__name__}: {e}"
+    # 6. Raw Reddit API test — try multiple domains
+    import httpx
+    for domain in ["www.reddit.com", "old.reddit.com"]:
+        try:
+            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as hc:
+                resp = await hc.get(
+                    f"https://{domain}/search.json",
+                    params={"q": "test", "limit": 2},
+                    headers={"User-Agent": "SmIA/1.0 (social media intelligence agent)"},
+                )
+                key = domain.replace(".", "_")
+                results[f"reddit_{key}_status"] = resp.status_code
+                if resp.status_code == 200:
+                    data = resp.json()
+                    children = data.get("data", {}).get("children", [])
+                    results[f"reddit_{key}_results"] = len(children)
+                else:
+                    results[f"reddit_{key}_body"] = resp.text[:200]
+        except Exception as e:
+            results[f"reddit_{domain}"] = f"error: {type(e).__name__}: {e}"
 
     return results
