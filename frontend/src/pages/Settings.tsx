@@ -14,10 +14,12 @@ import { useColorMode } from '../hooks/useColorMode';
 import { getBindCode } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { toaster } from '../lib/toaster';
-import { Moon, Sun, LinkIcon, CheckCircle } from 'lucide-react';
+import { Moon, Sun, LinkIcon, CheckCircle, Clock } from 'lucide-react';
 
 interface BindingRow {
   telegram_user_id: number | null;
+  bind_code: string | null;
+  code_expires_at: string | null;
   bound_at: string | null;
 }
 
@@ -27,8 +29,9 @@ export default function Settings() {
   const [bindCode, setBindCode] = useState<string | null>(null);
   const [bindExpires, setBindExpires] = useState<string | null>(null);
   const [bindLoading, setBindLoading] = useState(false);
-  const [isBound, setIsBound] = useState(false);
-  const [bindingLoading, setBindingLoading] = useState(true);
+  const [bindingStatus, setBindingStatus] = useState<
+    'loading' | 'none' | 'pending' | 'linked'
+  >('loading');
 
   // Fetch current binding status on mount
   useEffect(() => {
@@ -37,15 +40,32 @@ export default function Settings() {
     const fetchBinding = async () => {
       const { data } = await supabase
         .from('user_bindings')
-        .select('telegram_user_id, bound_at')
+        .select('telegram_user_id, bind_code, code_expires_at, bound_at')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (data?.telegram_user_id) {
-        setIsBound(true);
-        setBindCode(null); // Clear any displayed code
+      if (!data) {
+        // No row — user has never generated a code
+        setBindingStatus('none');
+      } else if (data.telegram_user_id) {
+        // Row with telegram_user_id — fully linked
+        setBindingStatus('linked');
+      } else {
+        // Row exists but no telegram_user_id — code generated, waiting for /bind
+        setBindingStatus('pending');
+        if (data.bind_code) {
+          setBindCode(data.bind_code);
+          if (data.code_expires_at) {
+            const expiry = new Date(data.code_expires_at);
+            if (expiry > new Date()) {
+              setBindExpires(expiry.toLocaleTimeString());
+            } else {
+              // Code expired, treat as no active code
+              setBindCode(null);
+            }
+          }
+        }
       }
-      setBindingLoading(false);
     };
 
     fetchBinding();
@@ -60,7 +80,7 @@ export default function Settings() {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'user_bindings',
           filter: `user_id=eq.${user.id}`,
@@ -68,7 +88,7 @@ export default function Settings() {
         (payload) => {
           const row = payload.new as BindingRow;
           if (row.telegram_user_id) {
-            setIsBound(true);
+            setBindingStatus('linked');
             setBindCode(null);
             toaster.success({ title: 'Telegram linked successfully!' });
           }
@@ -87,6 +107,7 @@ export default function Settings() {
       const data = await getBindCode();
       setBindCode(data.bind_code);
       setBindExpires(new Date(data.expires_at).toLocaleTimeString());
+      setBindingStatus('pending');
       toaster.success({ title: 'Bind code generated' });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to generate code';
@@ -94,6 +115,107 @@ export default function Settings() {
     } finally {
       setBindLoading(false);
     }
+  };
+
+  const renderBindingContent = () => {
+    if (bindingStatus === 'loading') {
+      return (
+        <Text fontSize="sm" color="fg.muted">
+          Loading binding status...
+        </Text>
+      );
+    }
+
+    if (bindingStatus === 'linked') {
+      return (
+        <Box
+          p={4}
+          borderWidth="1px"
+          borderRadius="md"
+          borderColor="green.500"
+        >
+          <Stack direction="row" align="center" gap={2}>
+            <CheckCircle size={20} color="var(--chakra-colors-green-500)" />
+            <Text fontWeight="medium" color="green.500">
+              Telegram Linked
+            </Text>
+          </Stack>
+          <Text fontSize="sm" color="fg.muted" mt={2}>
+            Your Telegram account is connected. Use <Code>/analyze topic</Code>{' '}
+            in the bot to run analyses from Telegram.
+          </Text>
+        </Box>
+      );
+    }
+
+    if (bindingStatus === 'pending' && bindCode) {
+      return (
+        <>
+          <Box
+            p={4}
+            borderWidth="1px"
+            borderRadius="md"
+            borderColor="yellow.500"
+          >
+            <Stack direction="row" align="center" gap={2} mb={2}>
+              <Clock size={18} color="var(--chakra-colors-yellow-500)" />
+              <Text fontWeight="medium" color="yellow.500">
+                Waiting for Telegram
+              </Text>
+            </Stack>
+            <Box textAlign="center" mt={2}>
+              <Text fontSize="sm" color="fg.muted" mb={1}>
+                Your bind code
+              </Text>
+              <Text
+                fontSize="3xl"
+                fontWeight="bold"
+                fontFamily="mono"
+                letterSpacing="0.2em"
+              >
+                {bindCode}
+              </Text>
+              {bindExpires && (
+                <Badge mt={2} variant="subtle">
+                  Expires at {bindExpires}
+                </Badge>
+              )}
+              <Text fontSize="xs" color="fg.muted" mt={2}>
+                Send <Code>/bind {bindCode}</Code> to @plonguo_bot on Telegram
+              </Text>
+            </Box>
+          </Box>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGenerateCode}
+            loading={bindLoading}
+            loadingText="Generating..."
+          >
+            Generate New Code
+          </Button>
+        </>
+      );
+    }
+
+    // bindingStatus === 'none' or 'pending' without a valid code
+    return (
+      <>
+        <Text fontSize="sm" color="fg.muted">
+          Link your Telegram account to use the SmIA bot. Generate a code
+          below and send <Code>/bind CODE</Code> to the bot.
+        </Text>
+        <Button
+          variant="outline"
+          onClick={handleGenerateCode}
+          loading={bindLoading}
+          loadingText="Generating..."
+        >
+          <LinkIcon size={16} />
+          Generate Bind Code
+        </Button>
+      </>
+    );
   };
 
   return (
@@ -149,77 +271,7 @@ export default function Settings() {
             <Heading size="md">Telegram Integration</Heading>
           </Card.Header>
           <Card.Body>
-            <Stack gap={4}>
-              {bindingLoading ? (
-                <Text fontSize="sm" color="fg.muted">
-                  Loading binding status...
-                </Text>
-              ) : isBound ? (
-                <Box
-                  p={4}
-                  borderWidth="1px"
-                  borderRadius="md"
-                  borderColor="green.500"
-                >
-                  <Stack direction="row" align="center" gap={2}>
-                    <CheckCircle size={20} color="var(--chakra-colors-green-500)" />
-                    <Text fontWeight="medium" color="green.500">
-                      Telegram Linked
-                    </Text>
-                  </Stack>
-                  <Text fontSize="sm" color="fg.muted" mt={2}>
-                    Your Telegram account is connected. Use <Code>/analyze topic</Code>{' '}
-                    in the bot to run analyses from Telegram.
-                  </Text>
-                </Box>
-              ) : (
-                <>
-                  <Text fontSize="sm" color="fg.muted">
-                    Link your Telegram account to use the SmIA bot. Generate a code
-                    below and send <Code>/bind CODE</Code> to the bot.
-                  </Text>
-
-                  {bindCode ? (
-                    <Box
-                      p={4}
-                      borderWidth="1px"
-                      borderRadius="md"
-                      textAlign="center"
-                    >
-                      <Text fontSize="sm" color="fg.muted" mb={1}>
-                        Your bind code
-                      </Text>
-                      <Text
-                        fontSize="3xl"
-                        fontWeight="bold"
-                        fontFamily="mono"
-                        letterSpacing="0.2em"
-                      >
-                        {bindCode}
-                      </Text>
-                      {bindExpires && (
-                        <Badge mt={2} variant="subtle">
-                          Expires at {bindExpires}
-                        </Badge>
-                      )}
-                      <Text fontSize="xs" color="fg.muted" mt={2}>
-                        Send <Code>/bind {bindCode}</Code> to @plonguo_bot on Telegram
-                      </Text>
-                    </Box>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      onClick={handleGenerateCode}
-                      loading={bindLoading}
-                      loadingText="Generating..."
-                    >
-                      <LinkIcon size={16} />
-                      Generate Bind Code
-                    </Button>
-                  )}
-                </>
-              )}
-            </Stack>
+            <Stack gap={4}>{renderBindingContent()}</Stack>
           </Card.Body>
         </Card.Root>
 
