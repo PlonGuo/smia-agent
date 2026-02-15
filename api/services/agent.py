@@ -88,6 +88,12 @@ def _get_model_name() -> str:
 agent = create_agent()
 
 
+@observe(name="pydantic_ai_agent_run")
+async def _run_agent(query: str):
+    """Run the PydanticAI agent with Langfuse observation."""
+    return await agent.run(query, deps=query)
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -124,8 +130,8 @@ async def analyze_topic(
 
     os.environ.setdefault("OPENAI_API_KEY", settings.effective_openai_key)
 
-    # Run the agent
-    result = await agent.run(query, deps=query)
+    # Run the agent (tool calls are traced individually via @observe on crawlers)
+    result = await _run_agent(query)
     report: TrendReport = result.output
 
     # Enrich with metadata

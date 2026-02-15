@@ -12,6 +12,7 @@ from typing import Any
 from urllib.parse import quote_plus
 
 import httpx
+from langfuse import observe
 
 from core.config import settings
 
@@ -47,6 +48,7 @@ def _get_yars():
     return YARS(proxy=proxy, timeout=CRAWL_TIMEOUT)
 
 
+@observe(name="fetch_reddit")
 async def fetch_reddit(
     query: str,
     limit: int = 5,
@@ -129,6 +131,7 @@ _YT_SEARCH = "https://www.googleapis.com/youtube/v3/search"
 _YT_COMMENTS = "https://www.googleapis.com/youtube/v3/commentThreads"
 
 
+@observe(name="fetch_youtube")
 async def fetch_youtube(
     query: str,
     max_videos: int = 5,
@@ -242,6 +245,7 @@ async def _fetch_yt_comments(
 # ---------------------------------------------------------------------------
 
 
+@observe(name="fetch_amazon")
 async def fetch_amazon(
     query: str,
     max_products: int = 3,

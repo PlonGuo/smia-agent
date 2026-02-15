@@ -6,6 +6,7 @@ import logging
 import traceback
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from langfuse import observe
 
 from core.auth import AuthenticatedUser, get_current_user
 from core.rate_limit import check_rate_limit
@@ -16,6 +17,11 @@ from services.database import save_report
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["analyze"])
+
+
+@observe(name="save_report_to_supabase")
+def _save_report_observed(report_data: dict, user_id: str, access_token: str) -> dict:
+    return save_report(report_data=report_data, user_id=user_id, access_token=access_token)
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
@@ -44,7 +50,7 @@ async def analyze(
 
         # Persist to Supabase
         try:
-            saved = save_report(
+            saved = _save_report_observed(
                 report_data=report.model_dump(exclude={"id", "created_at"}),
                 user_id=user.user_id,
                 access_token=user.access_token,
