@@ -241,14 +241,43 @@ async def _fetch_yt_comments(
 
 
 # ---------------------------------------------------------------------------
-# Amazon  (Crawl4AI primary, Firecrawl fallback)
+# Amazon  (Crawl4AI local, Firecrawl on serverless / fallback)
 # ---------------------------------------------------------------------------
+
+# Cache crawl4ai availability so we don't attempt imports on every call.
+_crawl4ai_available: bool | None = None
+
+
+def _has_crawl4ai() -> bool:
+    """Check once whether crawl4ai is importable."""
+    global _crawl4ai_available
+    if _crawl4ai_available is None:
+        try:
+            import crawl4ai  # noqa: F401
+
+            _crawl4ai_available = True
+        except ImportError:
+            _crawl4ai_available = False
+    return _crawl4ai_available
+
+
+async def _smart_fetch(url: str) -> str | None:
+    """Fetch a URL using the best available crawler.
+
+    Tries Crawl4AI first (local dev with browser), falls back to Firecrawl.
+    Skips Crawl4AI entirely when it's not installed (e.g. Vercel serverless).
+    """
+    if _has_crawl4ai():
+        content = await _crawl4ai_fetch(url)
+        if content:
+            return content
+    return await _firecrawl_fetch(url)
 
 
 @observe(name="fetch_amazon")
 async def fetch_amazon(
     query: str,
-    max_products: int = 3,
+    max_products: int = 2,
 ) -> list[dict[str, Any]]:
     """Scrape Amazon search results and individual product pages for reviews.
 
@@ -264,14 +293,11 @@ async def fetch_amazon(
     search_url = f"https://www.amazon.com/s?k={quote_plus(query)}"
 
     # Step 1: Crawl the search results page
-    search_content = await _crawl4ai_fetch(search_url)
-    if not search_content:
-        search_content = await _firecrawl_fetch(search_url)
+    search_content = await _smart_fetch(search_url)
     if not search_content:
         raise RuntimeError(
-            f"Amazon crawling failed for '{query}': both Crawl4AI and Firecrawl "
-            "returned no data. Check that Playwright browsers are installed "
-            "(run `crawl4ai-setup`) or set FIRECRAWL_API_KEY."
+            f"Amazon crawling failed for '{query}': no data returned. "
+            "Ensure FIRECRAWL_API_KEY is set or crawl4ai is installed locally."
         )
 
     # Step 2: Extract product page URLs from the search results
@@ -287,7 +313,7 @@ async def fetch_amazon(
             }
         ]
 
-    # Step 3: Scrape individual product pages for reviews
+    # Step 3: Scrape individual product pages for reviews (parallel for Firecrawl)
     results = await _scrape_product_pages(product_urls)
     return results if results else [
         {
@@ -327,9 +353,7 @@ async def _scrape_product_pages(
     """Scrape individual Amazon product pages for reviews and details."""
 
     async def _scrape_one(url: str) -> dict[str, Any] | None:
-        content = await _crawl4ai_fetch(url)
-        if not content:
-            content = await _firecrawl_fetch(url)
+        content = await _smart_fetch(url)
         if not content:
             logger.warning("Could not scrape product page: %s", url)
             return None
@@ -345,13 +369,18 @@ async def _scrape_product_pages(
             "source": "amazon",
         }
 
-    # Scrape sequentially to avoid Amazon throttling concurrent requests
-    results: list[dict[str, Any]] = []
-    for u in urls:
-        r = await _scrape_one(u)
-        if r:
-            results.append(r)
-    return results
+    # When using Firecrawl (cloud API), scrape in parallel for speed.
+    # With Crawl4AI (local browser), scrape sequentially to avoid throttling.
+    if _has_crawl4ai():
+        results: list[dict[str, Any]] = []
+        for u in urls:
+            r = await _scrape_one(u)
+            if r:
+                results.append(r)
+        return results
+    else:
+        scraped = await asyncio.gather(*[_scrape_one(u) for u in urls])
+        return [r for r in scraped if r]
 
 
 def _trim_amazon_page(content: str, max_chars: int = 8000) -> str:

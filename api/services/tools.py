@@ -166,7 +166,7 @@ async def fetch_amazon_tool(ctx: RunContext[str], query: str) -> str:
     and returns the extracted markdown content.
     """
     try:
-        results = await fetch_amazon(query, max_products=3)
+        results = await fetch_amazon(query, max_products=2)
     except RuntimeError as exc:
         logger.error("Amazon fetch error: %s", exc)
         return f"[ERROR] Failed to fetch Amazon data for '{query}': {exc}"
