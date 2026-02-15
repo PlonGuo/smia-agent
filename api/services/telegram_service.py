@@ -43,7 +43,8 @@ async def send_message(
     parse_mode: str = "HTML",
 ) -> dict:
     """Send a text message to a Telegram chat via the Bot API."""
-    url = f"{TELEGRAM_API.format(token=settings.telegram_bot_token)}/sendMessage"
+    token = settings.telegram_bot_token.strip()
+    url = f"{TELEGRAM_API.format(token=token)}/sendMessage"
     payload = {
         "chat_id": chat_id,
         "text": text,
@@ -58,7 +59,8 @@ async def send_message(
 
 async def send_typing_action(chat_id: int) -> None:
     """Send a "typing..." indicator to the chat."""
-    url = f"{TELEGRAM_API.format(token=settings.telegram_bot_token)}/sendChatAction"
+    token = settings.telegram_bot_token.strip()
+    url = f"{TELEGRAM_API.format(token=token)}/sendChatAction"
     payload = {"chat_id": chat_id, "action": "typing"}
     async with httpx.AsyncClient(timeout=5) as client:
         try:
