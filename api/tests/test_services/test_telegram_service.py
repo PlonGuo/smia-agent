@@ -153,7 +153,7 @@ class TestFormatHelp:
 
     def test_contains_web_link(self):
         result = format_help()
-        assert "smia-platform.vercel.app" in result
+        assert "smia-agent.vercel.app" in result
 
 
 class TestFormatError:
