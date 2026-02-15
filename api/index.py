@@ -119,17 +119,34 @@ async def debug_check():
     except ImportError as e:
         results["yars"] = f"not available: {e}"
 
-    # 6. Test Reddit fetch via YARS (with ScraperAPI proxy if configured)
+    # 6. Test Reddit fetch via ScraperAPI proxy
     results["scraper_api_key"] = bool(settings.scraper_api_key.strip())
     try:
-        from services.crawler import fetch_reddit
-        reddit_posts = await fetch_reddit("test", limit=2)
-        results["reddit_fetch"] = f"ok: {len(reddit_posts)} posts"
-        if reddit_posts:
-            results["reddit_sample_title"] = reddit_posts[0].get("title", "")[:80]
+        import httpx
+        proxy_key = settings.scraper_api_key.strip()
+        if proxy_key:
+            # Quick raw test through ScraperAPI proxy
+            proxy_url = f"http://scraperapi:{proxy_key}@proxy-server.scraperapi.com:8001"
+            async with httpx.AsyncClient(
+                timeout=20, proxy=proxy_url, verify=False
+            ) as hc:
+                resp = await hc.get(
+                    "https://www.reddit.com/search.json",
+                    params={"q": "test", "limit": 2},
+                    headers={"User-Agent": "SmIA/1.0"},
+                )
+                results["reddit_proxy_status"] = resp.status_code
+                if resp.status_code == 200:
+                    data = resp.json()
+                    children = data.get("data", {}).get("children", [])
+                    results["reddit_proxy_results"] = len(children)
+                else:
+                    results["reddit_proxy_body"] = resp.text[:200]
+        else:
+            results["reddit_proxy"] = "skipped (no SCRAPER_API_KEY)"
     except Exception as e:
         import traceback
-        results["reddit_fetch"] = f"error: {type(e).__name__}: {e}"
-        results["reddit_traceback"] = traceback.format_exc()[-500:]
+        results["reddit_proxy"] = f"error: {type(e).__name__}: {e}"
+        results["reddit_proxy_traceback"] = traceback.format_exc()[-300:]
 
     return results

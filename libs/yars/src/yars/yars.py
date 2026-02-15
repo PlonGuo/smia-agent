@@ -26,8 +26,8 @@ class YARS:
         self.timeout = timeout
 
         retries = Retry(
-            total=5,
-            backoff_factor=2,  # Exponential backoff
+            total=2 if proxy else 5,
+            backoff_factor=1 if proxy else 2,
             status_forcelist=[429, 500, 502, 503, 504],
         )
 
@@ -35,6 +35,7 @@ class YARS:
 
         if proxy:
             self.session.proxies.update({"http": proxy, "https": proxy})
+            self.session.verify = False
     def handle_search(self,url, params, after=None, before=None):
         if after:
             params["after"] = after
