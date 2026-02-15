@@ -47,7 +47,7 @@
 ### 1.4 Crawler Service
 
 - [x] Create `api/services/crawler.py` with base crawler interface
-- [x] Implement Reddit fetching using YARS library (search_reddit, scrape_post_details) -- see `yars_doc.md` and `example.py`
+- [x] Implement Reddit fetching using YARS library (search_reddit, scrape_post_details) -- see `docs/yars_doc.md` and `example.py`
 - [x] Implement YouTube data fetching using YouTube Data API v3 (search + comment threads)
 - [x] Implement Amazon review scraping using Crawl4AI (see Crawl4AI docs for e-commerce extraction)
 - [x] Add Firecrawl as fallback scraper for when Crawl4AI fails (timeout/error)

@@ -6,8 +6,8 @@ You are the lead engineer building SmIA (Social Media Intelligence Agent), a dua
 
 ## Project Context
 
-- Read `PRD.md` in this repo for the complete product requirements
-- Read `yars_doc.md` and `example.py` for the use of yars lib to fetch reddit info, check the github for installation if have quesitons: https://github.com/PlonGuo/yars.git
+- Read `docs/PRD.md` in this repo for the complete product requirements
+- Read `docs/yars_doc.md` and `example.py` for the use of yars lib to fetch reddit info, check the github for installation if have quesitons: https://github.com/PlonGuo/yars.git
 - In developing stage, all api keys and tokens are in local.env file.
 - Read this article for architectural guidance on long-running agent harnesses: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
 - Find and study the accompanying quickstart repo on GitHub for code examples
@@ -31,8 +31,8 @@ You are authorized to spawn sub-agents for parallel work when beneficial. Recomm
 Do NOT start coding immediately. First:
 
 1. **Learn**: Use Playwright MCP to read the Anthropic harness article above and find its quickstart GitHub repo. Study the patterns (initializer agent, progress tracking, feature lists).
-2. **Read**: Read `PRD.md` thoroughly.
-3. **Create `features.md`**: Break the PRD into a granular, ordered checklist of individually completable features. Group by phase (Phase 1-4 per PRD Section 9). Each feature should be completable in one session.
+2. **Read**: Read `docs/PRD.md` thoroughly.
+3. **Create `docs/features.md`**: Break the PRD into a granular, ordered checklist of individually completable features. Group by phase (Phase 1-4 per PRD Section 9). Each feature should be completable in one session.
 4. **Create `claude-progress.txt`**: Initialize with current status, next steps, and blockers. Update this file at the END of every session.
 5. **Set up project skeleton**: Initialize uv project, create directory structure per PRD Section 4.3, install core dependencies.
 6. **Set up Supabase**: Use Supabase MCP to create tables and RLS policies per PRD Section 6.1.
@@ -40,11 +40,11 @@ Do NOT start coding immediately. First:
 
 ## Working Rules
 
-- **Incremental progress**: Complete ONE feature at a time from `features.md`. Check it off when done.
+- **Incremental progress**: Complete ONE feature at a time from `docs/features.md`. Check it off when done.
 - **Always update `claude-progress.txt`** before ending a session with: what was done, what's next, any blockers.
 - **Test as you go**: Write tests for each feature. Run them before moving on.
 - **Git discipline**: Do NOT git add, commit, or push automatically. Only run git operations when the user explicitly asks.
-- **Never skip the PRD**: All implementation decisions must align with `PRD.md`. If ambiguous, note it in progress file.
+- **Never skip the PRD**: All implementation decisions must align with `docs/PRD.md`. If ambiguous, note it in progress file.
 - **Use MCP tools actively**: Playwright for docs/learning, Supabase for DB operations.
 - **Package managers**: Use `uv` for backend (Python), `pnpm` for frontend (Node.js). Never use npm or pip directly.
 
@@ -85,7 +85,7 @@ Do NOT start coding immediately. First:
 - **Database**: PostgreSQL via Supabase, using supabase mcp to manage the project: `smia-agent`
 - **Deploy**: Vercel (serverless)
 - **Bot**: python-telegram-bot (webhook mode)
-- **Reddit Scraping**: YARS (see project yars_doc.md for the lib overview and example.py for the use of the lib functions to fetch reddit data)
+- **Reddit Scraping**: YARS (see project docs/yars_doc.md for the lib overview and example.py for the use of the lib functions to fetch reddit data)
 - **Youtube Data Fetching**: Using Youtube v3 API Key
 - **Amazon Scraping**: Check the official doc of Crawl4AI `https://docs.crawl4ai.com/core/examples/#e-commerce-specialized-crawling` & `https://github.com/unclecode/crawl4ai/blob/main/docs/examples/amazon_product_extraction_direct_url.py` for more details
 
