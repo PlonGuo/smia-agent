@@ -57,7 +57,11 @@ async def fetch_reddit(
 
     Returns a list of dicts:
         {title, body, comments, permalink, url, source}
+
+    When using a proxy, only scrapes details for the top 3 posts to stay
+    within Vercel's 60s function timeout.
     """
+    using_proxy = bool(settings.scraper_api_key.strip())
 
     def _sync_fetch() -> list[dict[str, Any]]:
         miner = _get_yars()
@@ -65,33 +69,49 @@ async def fetch_reddit(
             query, limit=limit, sort=sort, time_filter=time_filter
         )
         posts: list[dict[str, Any]] = []
-        for result in search_results:
-            try:
-                details = miner.scrape_post_details(result["permalink"])
-                if details:
-                    posts.append(
-                        {
-                            "title": details.get("title", result.get("title", "")),
-                            "body": details.get("body", ""),
-                            "comments": details.get("comments", []),
-                            "permalink": result.get("permalink", ""),
-                            "url": result.get("link", ""),
-                            "source": "reddit",
-                        }
+        # When using proxy, limit detail scrapes to save time/credits
+        detail_limit = 3 if using_proxy else limit
+        for i, result in enumerate(search_results):
+            if i < detail_limit:
+                try:
+                    details = miner.scrape_post_details(result["permalink"])
+                    if details:
+                        posts.append(
+                            {
+                                "title": details.get("title", result.get("title", "")),
+                                "body": details.get("body", ""),
+                                "comments": details.get("comments", []),
+                                "permalink": result.get("permalink", ""),
+                                "url": result.get("link", ""),
+                                "source": "reddit",
+                            }
+                        )
+                        continue
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to scrape Reddit post %s: %s",
+                        result.get("permalink"),
+                        exc,
                     )
-            except Exception as exc:
-                logger.warning(
-                    "Failed to scrape Reddit post %s: %s",
-                    result.get("permalink"),
-                    exc,
-                )
+            # Use search result data directly (no detail scrape)
+            posts.append(
+                {
+                    "title": result.get("title", ""),
+                    "body": result.get("description", ""),
+                    "comments": [],
+                    "permalink": result.get("permalink", ""),
+                    "url": result.get("link", ""),
+                    "source": "reddit",
+                }
+            )
         return posts
 
     try:
+        timeout = 30 if using_proxy else CRAWL_TIMEOUT
         loop = asyncio.get_running_loop()
         return await asyncio.wait_for(
             loop.run_in_executor(None, _sync_fetch),
-            timeout=CRAWL_TIMEOUT,
+            timeout=timeout,
         )
     except asyncio.TimeoutError:
         logger.error("Reddit fetch timed out for query: %s", query)

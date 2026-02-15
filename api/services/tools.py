@@ -107,7 +107,7 @@ async def fetch_reddit_tool(ctx: RunContext[str], query: str) -> str:
     Searches Reddit using YARS, retrieves top posts and their comments,
     and returns a formatted text summary for LLM analysis.
     """
-    posts = await fetch_reddit(query, limit=10, sort="relevance", time_filter="week")
+    posts = await fetch_reddit(query, limit=5, sort="relevance", time_filter="week")
     if not posts:
         return f"No Reddit results found for '{query}'."
 
