@@ -239,7 +239,7 @@ def lookup_bind_code(bind_code: str) -> dict | None:
             .maybe_single()
             .execute()
         )
-        if response.data is None:
+        if response is None or response.data is None:
             return None
 
         # Check expiry
@@ -291,6 +291,8 @@ def get_binding_by_telegram_id(telegram_user_id: int) -> dict | None:
             .maybe_single()
             .execute()
         )
+        if response is None:
+            return None
         return response.data
     except APIError as exc:
         logger.error(
