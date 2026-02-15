@@ -27,8 +27,6 @@ Every analysis is saved to your personal dashboard and can be accessed from both
 
 ### Web Application
 
-![SmIA Login](docs/images/login.png)
-
 The primary experience — a full-featured React web app with:
 
 - **Natural language query input** — just describe what you want to know
@@ -37,7 +35,19 @@ The primary experience — a full-featured React web app with:
 - **Historical dashboard** — browse, search, and filter all past analyses with pagination
 - **Dark/light theme** — system-aware with manual toggle
 
+![SmIA Dashboard](docs/images/dashboard.png)
+
+![SmIA Analyze](docs/images/analyze.png)
+
+![SmIA Report Detail](docs/images/report-detail.png)
+
+![SmIA Report Charts](docs/images/report-detail2.png)
+
+![SmIA Settings](docs/images/settings.png)
+
 ### Telegram Bot
+
+![SmIA Telegram Bot](docs/images/telegram.jpg)
 
 A companion mobile experience for quick analysis on the go:
 

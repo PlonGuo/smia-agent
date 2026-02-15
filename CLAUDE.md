@@ -61,6 +61,7 @@ Do NOT start coding immediately. First:
 
 ### Frontend Testing (Playwright MCP)
 - Use **Playwright MCP** for E2E UI testing after building frontend components
+- **Sign-in credentials**: Read `TEST_EMAIL` and `TEST_PASSWORD` from `local.env` for authenticated Playwright testing
 - Test workflow: start dev server (`pnpm dev`), then use Playwright MCP to interact with pages
 - Key things to test with Playwright:
   - Page navigation and routing works correctly
