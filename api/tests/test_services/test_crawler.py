@@ -63,13 +63,13 @@ class TestFetchReddit:
         assert posts == []
 
     @pytest.mark.asyncio
-    async def test_skips_failed_post_details(self):
+    async def test_falls_back_on_failed_post_details(self):
         mock_miner = MagicMock()
         mock_miner.search_reddit.return_value = [
             {"title": "P1", "link": "u1", "permalink": "/r/t/1/", "description": ""},
-            {"title": "P2", "link": "u2", "permalink": "/r/t/2/", "description": ""},
+            {"title": "P2", "link": "u2", "permalink": "/r/t/2/", "description": "d2"},
         ]
-        # First post scrape succeeds, second fails
+        # First post scrape succeeds, second returns None (falls back to search data)
         mock_miner.scrape_post_details.side_effect = [
             {"title": "P1", "body": "b1", "comments": []},
             None,
@@ -78,8 +78,13 @@ class TestFetchReddit:
         with patch("services.crawler._get_yars", return_value=mock_miner):
             posts = await fetch_reddit("mixed", limit=2)
 
-        assert len(posts) == 1
+        assert len(posts) == 2
         assert posts[0]["title"] == "P1"
+        assert posts[0]["body"] == "b1"
+        # Second post uses search result data as fallback
+        assert posts[1]["title"] == "P2"
+        assert posts[1]["body"] == "d2"
+        assert posts[1]["comments"] == []
 
     @pytest.mark.asyncio
     async def test_handles_exception_gracefully(self):
