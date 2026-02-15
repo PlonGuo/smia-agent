@@ -68,24 +68,3 @@ class TestConfirmBinding:
             json={"telegram_user_id": 12345, "bind_code": "AB"},
         )
         assert resp.status_code == 422
-
-
-class TestUnbind:
-    @pytest.mark.asyncio
-    async def test_requires_auth(self, client):
-        resp = await client.delete("/api/bind")
-        assert resp.status_code in (401, 403)
-
-    @pytest.mark.asyncio
-    async def test_successful_unbind(self, authed_client):
-        with patch("routes.auth.delete_binding", return_value=True):
-            resp = await authed_client.delete("/api/bind")
-
-        assert resp.status_code == 204
-
-    @pytest.mark.asyncio
-    async def test_returns_404_when_no_binding(self, authed_client):
-        with patch("routes.auth.delete_binding", return_value=False):
-            resp = await authed_client.delete("/api/bind")
-
-        assert resp.status_code == 404

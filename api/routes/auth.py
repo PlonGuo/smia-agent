@@ -12,7 +12,6 @@ from core.auth import AuthenticatedUser, get_current_user
 from models.schemas import BindCodeResponse, BindConfirmRequest
 from services.database import (
     complete_binding,
-    delete_binding,
     lookup_bind_code,
     save_bind_code,
 )
@@ -82,17 +81,3 @@ async def confirm_binding(body: BindConfirmRequest) -> dict:
         ) from exc
 
 
-@router.delete("/bind", status_code=status.HTTP_204_NO_CONTENT)
-async def unbind(
-    user: AuthenticatedUser = Depends(get_current_user),
-) -> None:
-    """Remove the Telegram binding for the authenticated user."""
-    deleted = delete_binding(
-        user_id=user.user_id,
-        access_token=user.access_token,
-    )
-    if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No active binding found",
-        )

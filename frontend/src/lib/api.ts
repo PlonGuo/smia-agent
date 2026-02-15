@@ -76,7 +76,3 @@ export async function deleteReport(id: string): Promise<void> {
 export async function getBindCode(): Promise<BindCodeResponse> {
   return apiClient<BindCodeResponse>('/bind/code');
 }
-
-export async function unbindTelegram(): Promise<void> {
-  return apiClient<void>('/bind', { method: 'DELETE' });
-}

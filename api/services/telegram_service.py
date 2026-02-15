@@ -346,7 +346,7 @@ async def handle_bind(
         await send_message(
             chat_id,
             "\u2705 Your Telegram is already linked to a web account.\n"
-            "To re-link, unbind first from the web Settings page.",
+            "You can use /analyze to start analyzing topics!",
         )
         return
 

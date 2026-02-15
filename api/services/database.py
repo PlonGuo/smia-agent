@@ -301,21 +301,3 @@ def get_binding_by_telegram_id(telegram_user_id: int) -> dict | None:
         return None
 
 
-def delete_binding(user_id: str, access_token: str) -> bool:
-    """Delete the binding for the authenticated web user.
-
-    Returns ``True`` if a row was actually deleted.
-    """
-    client = get_supabase_client(access_token)
-
-    try:
-        response = (
-            client.table("user_bindings")
-            .delete()
-            .eq("user_id", user_id)
-            .execute()
-        )
-        return len(response.data) > 0
-    except APIError as exc:
-        logger.error("Failed to delete binding for user %s: %s", user_id, exc)
-        return False
