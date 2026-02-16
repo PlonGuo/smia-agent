@@ -3,6 +3,11 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { createNoise3D } from 'simplex-noise';
 
+/** Deterministic pseudo-random [0,1) from integer index (Knuth multiplicative hash) */
+function pseudoRandom(i: number): number {
+  return (((i * 2654435761) >>> 0) % 4294967296) / 4294967296;
+}
+
 const SPHERE_RADIUS = 1.5;
 const ICOSA_DETAIL = 12;
 const NOISE_SPEED = 0.3;
@@ -96,14 +101,14 @@ export default function ParticleSphere() {
       colorArray[i * 3] = color.r;
       colorArray[i * 3 + 1] = color.g;
       colorArray[i * 3 + 2] = color.b;
-      rotArray[i] = Math.random() * Math.PI * 2;
+      rotArray[i] = pseudoRandom(i) * Math.PI * 2;
     }
 
     geo.dispose();
     return { basePositions: base, colors: colorArray, rotations: rotArray, count };
   }, []);
 
-  const positions = useMemo(() => new Float32Array(basePositions), [basePositions]);
+  const initialPositions = useMemo(() => new Float32Array(basePositions), [basePositions]);
 
   const { gl } = useThree();
 
@@ -137,6 +142,11 @@ export default function ParticleSphere() {
       localHitPoint.copy(hitPoint).applyMatrix4(inverseMatrix);
       hasHit = true;
     }
+
+    // Mutate the geometry buffer directly (not the useMemo value)
+    const posAttr = pointsRef.current.geometry.attributes.position;
+    if (!(posAttr instanceof THREE.BufferAttribute)) return;
+    const posArray = posAttr.array as Float32Array;
 
     for (let i = 0; i < count; i++) {
       const bx = basePositions[i * 3];
@@ -190,15 +200,12 @@ export default function ParticleSphere() {
         }
       }
 
-      positions[i * 3] = bx + dispX;
-      positions[i * 3 + 1] = by + dispY;
-      positions[i * 3 + 2] = bz + dispZ;
+      posArray[i * 3] = bx + dispX;
+      posArray[i * 3 + 1] = by + dispY;
+      posArray[i * 3 + 2] = bz + dispZ;
     }
 
-    const posAttr = pointsRef.current.geometry.attributes.position;
-    if (posAttr instanceof THREE.BufferAttribute) {
-      posAttr.needsUpdate = true;
-    }
+    posAttr.needsUpdate = true;
 
     // Accumulate idle rotation separately
     idleAngle.current.y += ROTATION_SPEED * 0.01;
@@ -215,7 +222,7 @@ export default function ParticleSphere() {
   return (
     <points ref={pointsRef} material={material} frustumCulled={false}>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-position" args={[initialPositions, 3]} />
         <bufferAttribute attach="attributes-color" args={[colors, 3]} />
         <bufferAttribute attach="attributes-aRotation" args={[rotations, 1]} />
       </bufferGeometry>
