@@ -8,11 +8,12 @@
 
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
 }
 
 #root {
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* ============================================
@@ -32,6 +33,12 @@ body {
   background-attachment: fixed;
 }
 
+@media (max-width: 767px) {
+  .app-bg {
+    background-attachment: scroll;
+  }
+}
+
 :root:not(.dark) .app-bg {
   background-color: #eef2f7;
   background-image:
@@ -39,6 +46,27 @@ body {
     radial-gradient(ellipse at 85% 20%, rgba(56, 189, 248, 0.08) 0%, transparent 50%),
     radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.06) 0%, transparent 40%);
   background-attachment: fixed;
+}
+
+@media (max-width: 767px) {
+  :root:not(.dark) .app-bg {
+    background-attachment: scroll;
+  }
+}
+
+/* --- Glass Drawer (Mobile Slide-in Menu) --- */
+.glass-drawer {
+  background: rgba(10, 10, 15, 0.85) !important;
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4);
+}
+
+:root:not(.dark) .glass-drawer {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-left: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.08);
 }
 
 /* --- Glass Navigation Bar --- */

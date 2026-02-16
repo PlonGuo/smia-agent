@@ -47,9 +47,10 @@ export default function Login() {
   return (
     <Box
       display="flex"
-      alignItems="center"
+      alignItems={{ base: 'flex-start', md: 'center' }}
       justifyContent="center"
-      minH="calc(100vh - 200px)"
+      flex={1}
+      pt={{ base: 4, md: 0 }}
     >
       <Card.Root className="glass-panel" maxW="md" w="full">
         <Card.Header textAlign="center">

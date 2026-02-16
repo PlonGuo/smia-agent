@@ -204,11 +204,11 @@ export default function Settings() {
 
   return (
     <Box>
-      <Heading size="xl" mb={6}>
+      <Heading size="xl" mb={6} maxW="2xl" mx="auto" w="full">
         Settings
       </Heading>
 
-      <Stack gap={6} maxW="2xl">
+      <Stack gap={6} maxW="2xl" mx="auto" w="full">
         {/* Account info */}
         <Card.Root className="glass-panel">
           <Card.Header>

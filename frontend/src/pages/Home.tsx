@@ -25,7 +25,7 @@ export default function Home() {
   const { user } = useAuth();
 
   return (
-    <Box position="relative" minH="100vh" bg="black" overflow="hidden">
+    <Box position="relative" minH="100dvh" bg="black" overflow="hidden">
       <FluidHalo />
       <Suspense fallback={null}>
         <ParticleScene />
@@ -35,11 +35,12 @@ export default function Home() {
       <Flex
         position="relative"
         zIndex={2}
-        minH="100vh"
+        minH="100dvh"
         direction="column"
         alignItems="center"
         justifyContent="center"
         px={4}
+        py={{ base: 16, md: 4 }}
         textAlign="center"
       >
         <MotionStack
@@ -121,8 +122,8 @@ export default function Home() {
 
         {/* Feature highlights */}
         <MotionFlex
-          mt={20}
-          gap={8}
+          mt={{ base: 10, md: 20 }}
+          gap={{ base: 4, md: 8 }}
           flexWrap="wrap"
           justifyContent="center"
           maxW="4xl"
