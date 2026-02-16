@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from typing import Any
 
+from langfuse import observe
+from openai import AsyncOpenAI
 from pydantic_ai import RunContext
 
+from core.config import settings
 from services.crawler import fetch_amazon, fetch_reddit, fetch_youtube
 
 logger = logging.getLogger(__name__)
@@ -79,6 +83,93 @@ def _clean_text(text: str, source: str = "") -> str:
     return "\n".join(cleaned).strip()
 
 
+# ---------------------------------------------------------------------------
+# LLM relevance filter (gpt-4o-mini)
+# ---------------------------------------------------------------------------
+
+_openai_client: AsyncOpenAI | None = None
+
+
+def _get_openai_client() -> AsyncOpenAI:
+    """Lazy-init async OpenAI client."""
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = AsyncOpenAI(api_key=settings.effective_openai_key)
+    return _openai_client
+
+
+@observe(name="relevance_filter")
+async def relevance_filter(
+    query: str,
+    items: list[dict],
+    source: str,
+) -> tuple[list[dict], float]:
+    """Batch LLM relevance check using gpt-4o-mini.
+
+    Sends item titles + snippets to gpt-4o-mini, which returns a JSON array
+    of booleans indicating whether each item is relevant to the query.
+
+    Returns (relevant_items, yield_ratio).
+    On any failure, returns (items, 1.0) — fail-open to avoid blocking pipeline.
+    """
+    if not items:
+        return [], 1.0
+
+    # Build numbered item list (title + first 200 chars of body/content)
+    item_lines: list[str] = []
+    for i, item in enumerate(items, 1):
+        title = item.get("title", "Untitled")
+        snippet = (
+            item.get("body") or item.get("content") or item.get("description") or ""
+        )[:200]
+        item_lines.append(f"{i}. [{title}] {snippet}")
+
+    prompt = (
+        f'Query: "{query}"\n'
+        f"Source: {source}\n\n"
+        "For each item below, determine if it is relevant to the query. "
+        "An item is relevant if it directly discusses, reviews, or mentions "
+        "the specific product, brand, or topic in the query.\n\n"
+        "Items:\n" + "\n".join(item_lines) + "\n\n"
+        "Respond with ONLY a JSON array of booleans (true/false) — one per item. "
+        "Example for 3 items: [true, false, true]"
+    )
+
+    try:
+        client = _get_openai_client()
+        response = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            max_tokens=100,
+        )
+        raw = response.choices[0].message.content.strip()
+        verdicts: list[bool] = json.loads(raw)
+
+        if len(verdicts) != len(items):
+            logger.warning(
+                "Relevance filter returned %d verdicts for %d items — fail open",
+                len(verdicts),
+                len(items),
+            )
+            return items, 1.0
+
+        relevant = [item for item, is_rel in zip(items, verdicts) if is_rel]
+        yield_ratio = len(relevant) / len(items) if items else 1.0
+        logger.info(
+            "Relevance filter [%s]: %d/%d relevant (yield %.0f%%)",
+            source,
+            len(relevant),
+            len(items),
+            yield_ratio * 100,
+        )
+        return relevant, yield_ratio
+
+    except Exception as exc:
+        logger.warning("Relevance filter failed — returning all items: %s", exc)
+        return items, 1.0
+
+
 def _summarize_comments(comments: list[dict], max_comments: int = 10) -> str:
     """Flatten nested Reddit/YouTube comments into a concise text block."""
     lines: list[str] = []
@@ -106,19 +197,34 @@ async def fetch_reddit_tool(ctx: RunContext[str], query: str) -> str:
 
     Searches Reddit using YARS, retrieves top posts and their comments,
     and returns a formatted text summary for LLM analysis.
+    Applies relevance filtering with adaptive refetch on low yield.
     """
-    posts = await fetch_reddit(query, limit=5, sort="relevance", time_filter="week")
+    INITIAL_LIMIT = 5
+
+    posts = await fetch_reddit(query, limit=INITIAL_LIMIT, sort="relevance", time_filter="week")
     if not posts:
         return f"No Reddit results found for '{query}'."
 
+    relevant, yield_ratio = await relevance_filter(query, posts, "reddit")
+
+    # Adaptive refetch: if yield < 50% and we got a full batch, try 2x
+    if yield_ratio < 0.5 and len(posts) >= INITIAL_LIMIT:
+        logger.info("Reddit yield %.0f%% — refetching with limit=%d", yield_ratio * 100, INITIAL_LIMIT * 2)
+        posts = await fetch_reddit(query, limit=INITIAL_LIMIT * 2, sort="relevance", time_filter="week")
+        if posts:
+            relevant, yield_ratio = await relevance_filter(query, posts, "reddit")
+
+    if not relevant:
+        return f"No relevant Reddit results found for '{query}'."
+
     sections: list[str] = []
-    for post in posts:
+    for post in relevant:
         title = post.get("title", "Untitled")
         body = _clean_text(post.get("body", "")[:500], "reddit")
         url = post.get("url", "")
         comments_text = _summarize_comments(post.get("comments", []))
         if not body and not comments_text:
-            continue  # Skip posts with no meaningful content
+            continue
         sections.append(
             f"### {title}\nURL: {url}\n{body}\n\n**Comments:**\n{comments_text}"
         )
@@ -137,13 +243,27 @@ async def fetch_youtube_tool(ctx: RunContext[str], query: str) -> str:
 
     Searches YouTube Data API v3, retrieves top videos and their comments,
     and returns a formatted text summary for LLM analysis.
+    Applies relevance filtering with adaptive refetch on low yield.
     """
-    videos = await fetch_youtube(query, max_videos=5, max_comments_per_video=15)
+    INITIAL_LIMIT = 5
+
+    videos = await fetch_youtube(query, max_videos=INITIAL_LIMIT, max_comments_per_video=15)
     if not videos:
         return f"No YouTube results found for '{query}'."
 
+    relevant, yield_ratio = await relevance_filter(query, videos, "youtube")
+
+    if yield_ratio < 0.5 and len(videos) >= INITIAL_LIMIT:
+        logger.info("YouTube yield %.0f%% — refetching with limit=%d", yield_ratio * 100, INITIAL_LIMIT * 2)
+        videos = await fetch_youtube(query, max_videos=INITIAL_LIMIT * 2, max_comments_per_video=15)
+        if videos:
+            relevant, yield_ratio = await relevance_filter(query, videos, "youtube")
+
+    if not relevant:
+        return f"No relevant YouTube results found for '{query}'."
+
     sections: list[str] = []
-    for video in videos:
+    for video in relevant:
         title = video.get("title", "Untitled")
         channel = video.get("channel", "Unknown")
         url = video.get("url", "")
@@ -154,7 +274,7 @@ async def fetch_youtube_tool(ctx: RunContext[str], query: str) -> str:
         )
 
     return (
-        f"# YouTube Results for '{query}' ({len(videos)} videos)\n\n"
+        f"# YouTube Results for '{query}' ({len(sections)} videos)\n\n"
         + "\n\n---\n\n".join(sections)
     )
 
@@ -164,9 +284,12 @@ async def fetch_amazon_tool(ctx: RunContext[str], query: str) -> str:
 
     Uses Crawl4AI (with Firecrawl fallback) to scrape Amazon search results
     and returns the extracted markdown content.
+    Applies relevance filtering with adaptive refetch on low yield.
     """
+    INITIAL_MAX = 2
+
     try:
-        results = await fetch_amazon(query, max_products=2)
+        results = await fetch_amazon(query, max_products=INITIAL_MAX)
     except RuntimeError as exc:
         logger.error("Amazon fetch error: %s", exc)
         return f"[ERROR] Failed to fetch Amazon data for '{query}': {exc}"
@@ -174,8 +297,22 @@ async def fetch_amazon_tool(ctx: RunContext[str], query: str) -> str:
     if not results:
         return f"No Amazon results found for '{query}'."
 
+    relevant, yield_ratio = await relevance_filter(query, results, "amazon")
+
+    if yield_ratio < 0.5 and len(results) >= INITIAL_MAX:
+        logger.info("Amazon yield %.0f%% — refetching with max_products=%d", yield_ratio * 100, INITIAL_MAX * 2)
+        try:
+            results = await fetch_amazon(query, max_products=INITIAL_MAX * 2)
+            if results:
+                relevant, yield_ratio = await relevance_filter(query, results, "amazon")
+        except RuntimeError as exc:
+            logger.error("Amazon refetch error: %s", exc)
+
+    if not relevant:
+        return f"No relevant Amazon results found for '{query}'."
+
     sections: list[str] = []
-    for item in results:
+    for item in relevant:
         title = item.get("title", "")
         content = _clean_text(item.get("content", "")[:5000], "amazon")
         sections.append(f"### {title}\n{content}")
