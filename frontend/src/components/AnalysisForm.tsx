@@ -39,6 +39,7 @@ export default function AnalysisForm({ onSubmit, loading }: AnalysisFormProps) {
           {error && <Field.ErrorText>{error}</Field.ErrorText>}
         </Field.Root>
         <Button
+          className="btn-silicone"
           type="submit"
           colorPalette="blue"
           size="lg"

@@ -2,7 +2,7 @@
 
 > **Live site: [smia-agent.vercel.app](https://smia-agent.vercel.app)**
 
-![SmIA Homepage](docs/images/homepage.png)
+![SmIA Homepage](docs/images/readme-display/homepage.png)
 
 SmIA is a dual-interface AI intelligence platform that aggregates and analyzes content from multiple social media sources — Reddit, YouTube, and Amazon — in response to natural language queries. It delivers structured trend reports with sentiment analysis, key insights, and interactive data visualizations.
 
@@ -35,19 +35,19 @@ The primary experience — a full-featured React web app with:
 - **Historical dashboard** — browse, search, and filter all past analyses with pagination
 - **Dark/light theme** — system-aware with manual toggle
 
-![SmIA Dashboard](docs/images/dashboard.png)
+![SmIA Dashboard](docs/images/readme-display/dashboard.png)
 
-![SmIA Analyze](docs/images/analyze.png)
+![SmIA Analyze](docs/images/readme-display/analyze.png)
 
-![SmIA Report Detail](docs/images/report-detail.png)
+![SmIA Report Detail](docs/images/readme-display/report-detail.png)
 
-![SmIA Report Charts](docs/images/report-detail2.png)
+![SmIA Report Charts](docs/images/readme-display/report-detail2.png)
 
-![SmIA Settings](docs/images/settings.png)
+![SmIA Settings](docs/images/readme-display/settings.png)
 
 ### Telegram Bot
 
-![SmIA Telegram Bot](docs/images/telegram.jpg)
+![SmIA Telegram Bot](docs/images/readme-display/telegram.jpg)
 
 A companion mobile experience for quick analysis on the go:
 

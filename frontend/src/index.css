@@ -14,3 +14,226 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* ============================================
+   GLASSMORPHISM + CLAYMORPHISM UI OVERHAUL
+   Internal pages only (not landing page)
+   ============================================ */
+
+/* --- App Background ---
+   Gradient mesh gives glass panels something
+   interesting to blur through. */
+.app-bg {
+  background-color: #08080f;
+  background-image:
+    radial-gradient(ellipse at 15% 80%, rgba(74, 222, 128, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 20%, rgba(56, 189, 248, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.03) 0%, transparent 40%);
+  background-attachment: fixed;
+}
+
+:root:not(.dark) .app-bg {
+  background-color: #eef2f7;
+  background-image:
+    radial-gradient(ellipse at 15% 80%, rgba(74, 222, 128, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 20%, rgba(56, 189, 248, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.06) 0%, transparent 40%);
+  background-attachment: fixed;
+}
+
+/* --- Glass Navigation Bar --- */
+.glass-nav {
+  background: rgba(10, 10, 15, 0.65) !important;
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+:root:not(.dark) .glass-nav {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+/* --- Glass Panel / Card ---
+   Frosted-glass container for content sections */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.03) !important;
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.06) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-panel:hover {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+:root:not(.dark) .glass-panel {
+  background: rgba(255, 255, 255, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.05),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+:root:not(.dark) .glass-panel:hover {
+  border-color: rgba(255, 255, 255, 0.8) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Danger variant — red-tinted glass edge */
+.glass-panel-danger {
+  background: rgba(255, 255, 255, 0.03) !important;
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  border-radius: 16px !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    inset 0 0.5px 0 rgba(239, 68, 68, 0.1) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+:root:not(.dark) .glass-panel-danger {
+  background: rgba(255, 255, 255, 0.55) !important;
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.05),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+/* --- Realistic Silicone / Clay Button ---
+   3D depth via layered box-shadows.
+   Light source: top-left. */
+.btn-silicone {
+  border-radius: 50px !important;
+  font-weight: 600 !important;
+  border: none !important;
+  transition: transform 0.12s ease, box-shadow 0.12s ease !important;
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.25),
+    inset 0 1.5px 3px rgba(255, 255, 255, 0.15),
+    inset 0 -2.5px 5px rgba(0, 0, 0, 0.2) !important;
+}
+
+.btn-silicone:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.4),
+    0 3px 8px rgba(0, 0, 0, 0.28),
+    inset 0 1.5px 3px rgba(255, 255, 255, 0.2),
+    inset 0 -2.5px 5px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* :active = physically pressed inward */
+.btn-silicone:active:not(:disabled) {
+  transform: translateY(2px) !important;
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.2),
+    0 0.5px 2px rgba(0, 0, 0, 0.15),
+    inset 0 -0.5px 1.5px rgba(255, 255, 255, 0.06),
+    inset 0 3px 8px rgba(0, 0, 0, 0.35) !important;
+}
+
+.btn-silicone:disabled {
+  opacity: 0.5;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.12),
+    inset 0 1px 2px rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Light mode silicone — softer, less dramatic shadows */
+:root:not(.dark) .btn-silicone {
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.1),
+    0 2px 6px rgba(0, 0, 0, 0.06),
+    inset 0 1.5px 3px rgba(255, 255, 255, 0.6),
+    inset 0 -2.5px 5px rgba(0, 0, 0, 0.08) !important;
+}
+
+:root:not(.dark) .btn-silicone:hover:not(:disabled) {
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.14),
+    0 3px 8px rgba(0, 0, 0, 0.08),
+    inset 0 1.5px 3px rgba(255, 255, 255, 0.7),
+    inset 0 -2.5px 5px rgba(0, 0, 0, 0.08) !important;
+}
+
+:root:not(.dark) .btn-silicone:active:not(:disabled) {
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.06),
+    0 0.5px 2px rgba(0, 0, 0, 0.04),
+    inset 0 -0.5px 1.5px rgba(255, 255, 255, 0.35),
+    inset 0 3px 8px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* --- Crystal Glass Button ---
+   Transparent/translucent with backdrop-blur,
+   light-edge border shimmer, subtle depth.
+   Used on the landing page for secondary CTAs. */
+.btn-crystal {
+  border-radius: 50px !important;
+  font-weight: 500 !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  color: white !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease !important;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.25),
+    inset 0 1px 1px rgba(255, 255, 255, 0.12),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.15) !important;
+}
+
+.btn-crystal:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(255, 255, 255, 0.04),
+    inset 0 1px 1px rgba(255, 255, 255, 0.18),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.15) !important;
+}
+
+.btn-crystal:active:not(:disabled) {
+  transform: translateY(1px) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  box-shadow:
+    0 1px 6px rgba(0, 0, 0, 0.2),
+    inset 0 -0.5px 1px rgba(255, 255, 255, 0.08),
+    inset 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* --- Chart Tooltip ---
+   Solid opaque tooltip that responds to dark/light
+   via the .dark class on <html>. */
+.chart-tooltip {
+  background: #111119 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6) !important;
+  color: #fff !important;
+}
+
+.chart-tooltip .chart-tooltip-sub {
+  color: #9ca3af !important;
+}
+
+:root:not(.dark) .chart-tooltip {
+  background: #fff !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14) !important;
+  color: #1f2937 !important;
+}
+
+:root:not(.dark) .chart-tooltip .chart-tooltip-sub {
+  color: #6b7280 !important;
+}

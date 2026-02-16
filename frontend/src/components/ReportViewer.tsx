@@ -40,7 +40,7 @@ export default function ReportViewer({ report }: ReportViewerProps) {
   return (
     <Stack gap={6}>
       {/* Header */}
-      <Card.Root>
+      <Card.Root className="glass-panel">
         <Card.Body>
           <Flex justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={4}>
             <Box>
@@ -73,7 +73,7 @@ export default function ReportViewer({ report }: ReportViewerProps) {
       </Card.Root>
 
       {/* Summary */}
-      <Card.Root>
+      <Card.Root className="glass-panel">
         <Card.Header>
           <Heading size="md">Summary</Heading>
         </Card.Header>
@@ -83,7 +83,7 @@ export default function ReportViewer({ report }: ReportViewerProps) {
       </Card.Root>
 
       {/* Key Insights */}
-      <Card.Root>
+      <Card.Root className="glass-panel">
         <Card.Header>
           <Heading size="md">Key Insights</Heading>
         </Card.Header>
@@ -101,7 +101,7 @@ export default function ReportViewer({ report }: ReportViewerProps) {
       {/* Charts */}
       <Flex gap={6} flexWrap="wrap">
         <Box flex={1} minW="300px">
-          <Card.Root>
+          <Card.Root className="glass-panel">
             <Card.Body>
               <Suspense fallback={<ChartSkeleton />}>
                 {sentimentTimeline ? (
@@ -116,7 +116,7 @@ export default function ReportViewer({ report }: ReportViewerProps) {
           </Card.Root>
         </Box>
         <Box flex={1} minW="300px">
-          <Card.Root>
+          <Card.Root className="glass-panel">
             <Card.Body>
               <Suspense fallback={<ChartSkeleton />}>
                 <SourceDistribution data={report.source_breakdown} />
@@ -127,7 +127,7 @@ export default function ReportViewer({ report }: ReportViewerProps) {
       </Flex>
 
       {/* Top Discussions */}
-      <Card.Root>
+      <Card.Root className="glass-panel">
         <Card.Header>
           <Heading size="md">Top Discussions</Heading>
         </Card.Header>
@@ -165,7 +165,7 @@ export default function ReportViewer({ report }: ReportViewerProps) {
       </Card.Root>
 
       {/* Keywords */}
-      <Card.Root>
+      <Card.Root className="glass-panel">
         <Card.Header>
           <Heading size="md">Keywords</Heading>
         </Card.Header>

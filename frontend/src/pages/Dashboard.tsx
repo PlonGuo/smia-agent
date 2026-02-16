@@ -90,7 +90,7 @@ export default function Dashboard() {
               size="sm"
               w="250px"
             />
-            <Button type="submit" size="sm" variant="outline">
+            <Button className="btn-silicone" type="submit" size="sm" variant="outline">
               <Search size={14} />
             </Button>
           </Flex>
@@ -117,7 +117,7 @@ export default function Dashboard() {
       {loading ? (
         <Stack gap={4}>
           {[1, 2, 3].map((i) => (
-            <Card.Root key={i} p={4}>
+            <Card.Root className="glass-panel" key={i} p={4}>
               <Skeleton height="20px" width="60%" mb={2} />
               <Skeleton height="14px" width="40%" mb={3} />
               <Skeleton height="14px" width="80%" />
@@ -143,7 +143,7 @@ export default function Dashboard() {
 
           {totalPages > 1 && (
             <Flex justifyContent="center" alignItems="center" gap={4} mt={6}>
-              <Button
+              <Button className="btn-silicone"
                 size="sm"
                 variant="outline"
                 disabled={page <= 1}
@@ -155,7 +155,7 @@ export default function Dashboard() {
               <Text fontSize="sm" color="fg.muted">
                 Page {page} of {totalPages}
               </Text>
-              <Button
+              <Button className="btn-silicone"
                 size="sm"
                 variant="outline"
                 disabled={page >= totalPages}

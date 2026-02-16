@@ -169,7 +169,7 @@ export default function Settings() {
               </Text>
             </Box>
           </Box>
-          <Button
+          <Button className="btn-silicone"
             variant="outline"
             size="sm"
             onClick={handleGenerateCode}
@@ -189,7 +189,7 @@ export default function Settings() {
           Link your Telegram account to use the SmIA bot. Generate a code
           below and send <Code>/bind CODE</Code> to the bot.
         </Text>
-        <Button
+        <Button className="btn-silicone"
           variant="outline"
           onClick={handleGenerateCode}
           loading={bindLoading}
@@ -210,7 +210,7 @@ export default function Settings() {
 
       <Stack gap={6} maxW="2xl">
         {/* Account info */}
-        <Card.Root>
+        <Card.Root className="glass-panel">
           <Card.Header>
             <Heading size="md">Account</Heading>
           </Card.Header>
@@ -237,12 +237,12 @@ export default function Settings() {
         </Card.Root>
 
         {/* Theme */}
-        <Card.Root>
+        <Card.Root className="glass-panel">
           <Card.Header>
             <Heading size="md">Appearance</Heading>
           </Card.Header>
           <Card.Body>
-            <Button variant="outline" onClick={toggleColorMode}>
+            <Button className="btn-silicone" variant="outline" onClick={toggleColorMode}>
               {colorMode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
               {colorMode === 'dark' ? 'Light Mode' : 'Dark Mode'}
             </Button>
@@ -250,7 +250,7 @@ export default function Settings() {
         </Card.Root>
 
         {/* Telegram Binding */}
-        <Card.Root>
+        <Card.Root className="glass-panel">
           <Card.Header>
             <Heading size="md">Telegram Integration</Heading>
           </Card.Header>
@@ -273,14 +273,14 @@ export default function Settings() {
         </Card.Root>
 
         {/* Danger zone */}
-        <Card.Root borderColor="red.500" borderWidth="1px">
+        <Card.Root className="glass-panel-danger">
           <Card.Header>
             <Heading size="md" color="red.500">
               Danger Zone
             </Heading>
           </Card.Header>
           <Card.Body>
-            <Button colorPalette="red" variant="outline" onClick={signOut}>
+            <Button className="btn-silicone" colorPalette="red" variant="outline" onClick={signOut}>
               Sign Out
             </Button>
           </Card.Body>

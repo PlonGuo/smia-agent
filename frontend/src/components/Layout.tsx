@@ -25,15 +25,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { colorMode, toggleColorMode } = useColorMode();
 
   return (
-    <Box minH="100vh" bg={{ base: 'gray.50', _dark: 'gray.950' }}>
+    <Box minH="100vh" className="app-bg">
       <Flex
         as="nav"
         px={6}
         py={3}
-        borderBottomWidth="1px"
-        borderColor={{ base: 'gray.200', _dark: 'gray.800' }}
-        bg={{ base: 'white', _dark: 'gray.900' }}
+        className="glass-nav"
         alignItems="center"
+        position="sticky"
+        top={0}
+        zIndex={10}
       >
         <Link asChild>
           <RouterLink to="/">
@@ -49,6 +50,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link asChild key={path}>
                 <RouterLink to={path}>
                   <Button
+                    className="btn-silicone"
                     variant={location.pathname === path ? 'subtle' : 'ghost'}
                     size="sm"
                   >
@@ -65,6 +67,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         <HStack gap={2}>
           <IconButton
+            className="btn-silicone"
             aria-label="Toggle color mode"
             variant="ghost"
             size="sm"
@@ -73,7 +76,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {colorMode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </IconButton>
           {user ? (
-            <Button variant="ghost" size="sm" onClick={signOut}>
+            <Button className="btn-silicone" variant="ghost" size="sm" onClick={signOut}>
               <LogOut size={16} />
               Logout
             </Button>
@@ -82,6 +85,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link asChild>
                 <RouterLink to="/login">
                   <Button
+                    className="btn-silicone"
                     variant={location.pathname === '/login' ? 'subtle' : 'ghost'}
                     size="sm"
                   >
@@ -92,6 +96,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link asChild>
                 <RouterLink to="/signup">
                   <Button
+                    className="btn-silicone"
                     variant={location.pathname === '/signup' ? 'solid' : 'outline'}
                     colorPalette="green"
                     size="sm"

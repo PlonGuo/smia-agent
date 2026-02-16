@@ -57,13 +57,13 @@ export default function ReportDetail() {
     return (
       <Stack gap={6}>
         <Skeleton height="32px" width="40%" />
-        <Card.Root p={6}>
+        <Card.Root className="glass-panel" p={6}>
           <Skeleton height="20px" width="70%" mb={3} />
           <Skeleton height="14px" width="100%" mb={2} />
           <Skeleton height="14px" width="90%" mb={2} />
           <Skeleton height="14px" width="60%" />
         </Card.Root>
-        <Card.Root p={6}>
+        <Card.Root className="glass-panel" p={6}>
           <Skeleton height="200px" width="100%" />
         </Card.Root>
       </Stack>
@@ -79,7 +79,7 @@ export default function ReportDetail() {
         <Text color="fg.muted" mb={4}>
           {error || 'This report does not exist or has been deleted.'}
         </Text>
-        <Button variant="outline" onClick={() => navigate('/dashboard')}>
+        <Button className="btn-silicone" variant="outline" onClick={() => navigate('/dashboard')}>
           Back to Dashboard
         </Button>
       </Box>
@@ -89,7 +89,7 @@ export default function ReportDetail() {
   return (
     <Box>
       <Flex justifyContent="space-between" alignItems="center" mb={6}>
-        <Button
+        <Button className="btn-silicone"
           variant="ghost"
           size="sm"
           onClick={() => navigate('/dashboard')}
@@ -98,7 +98,7 @@ export default function ReportDetail() {
           Back
         </Button>
         <Flex gap={2}>
-          <IconButton
+          <IconButton className="btn-silicone"
             aria-label="Share report"
             variant="outline"
             size="sm"
@@ -106,7 +106,7 @@ export default function ReportDetail() {
           >
             <Share2 size={16} />
           </IconButton>
-          <IconButton
+          <IconButton className="btn-silicone"
             aria-label="Delete report"
             variant="outline"
             size="sm"

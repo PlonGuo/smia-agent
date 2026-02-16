@@ -1,110 +1,35 @@
-import { useEffect, useRef } from 'react';
+import { lazy, Suspense } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button, Heading, Text, Stack, Link, Flex } from '@chakra-ui/react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
+import FluidHalo from '../components/landing/FluidHalo';
 
-const SYMBOLS = '+-=*/<>{}[]|\\~^#@!?$%&;:.,0123456789';
-const COLUMN_GAP = 22;
-const FONT_SIZE = 14;
+const ParticleScene = lazy(() => import('../components/landing/ParticleScene'));
 
-function MatrixCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+const MotionBox = motion.create(Box);
+const MotionStack = motion.create(Stack);
+const MotionFlex = motion.create(Flex);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+const cardContainerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.15, delayChildren: 0.6 } },
+};
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animId: number;
-    let columns: number[] = [];
-
-    function resize() {
-      canvas!.width = window.innerWidth;
-      canvas!.height = window.innerHeight;
-      const colCount = Math.floor(canvas!.width / COLUMN_GAP);
-      columns = Array.from({ length: colCount }, () =>
-        Math.random() * canvas!.height
-      );
-    }
-
-    resize();
-    window.addEventListener('resize', resize);
-
-    function draw() {
-      ctx!.fillStyle = 'rgba(0, 0, 0, 0.05)';
-      ctx!.fillRect(0, 0, canvas!.width, canvas!.height);
-      ctx!.font = `${FONT_SIZE}px monospace`;
-
-      for (let i = 0; i < columns.length; i++) {
-        const char = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
-        const x = i * COLUMN_GAP;
-        const y = columns[i];
-
-        // Gradient from bright to dim
-        const brightness = Math.random();
-        if (brightness > 0.95) {
-          ctx!.fillStyle = '#ffffff';
-        } else if (brightness > 0.7) {
-          ctx!.fillStyle = '#4ade80';
-        } else {
-          ctx!.fillStyle = 'rgba(74, 222, 128, 0.4)';
-        }
-
-        ctx!.fillText(char, x, y);
-
-        if (y > canvas!.height && Math.random() > 0.975) {
-          columns[i] = 0;
-        }
-        columns[i] += FONT_SIZE + Math.random() * 4;
-      }
-
-      animId = requestAnimationFrame(draw);
-    }
-
-    draw();
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener('resize', resize);
-    };
-  }, []);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        zIndex: 0,
-      }}
-    />
-  );
-}
-
-function RippleOverlay() {
-  return (
-    <Box
-      position="absolute"
-      inset={0}
-      zIndex={1}
-      pointerEvents="none"
-      background="radial-gradient(ellipse at 50% 50%, transparent 0%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0.7) 100%)"
-    />
-  );
-}
+const cardVariants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' as const } },
+};
 
 export default function Home() {
   const { user } = useAuth();
 
   return (
     <Box position="relative" minH="100vh" bg="black" overflow="hidden">
-      <MatrixCanvas />
-      <RippleOverlay />
+      <FluidHalo />
+      <Suspense fallback={null}>
+        <ParticleScene />
+      </Suspense>
 
       {/* Content */}
       <Flex
@@ -117,7 +42,14 @@ export default function Home() {
         px={4}
         textAlign="center"
       >
-        <Stack gap={6} maxW="2xl" alignItems="center">
+        <MotionStack
+          gap={6}
+          maxW="2xl"
+          alignItems="center"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+        >
           <Heading
             size="4xl"
             color="white"
@@ -131,57 +63,72 @@ export default function Home() {
             </Text>
           </Heading>
 
-          <Text color="gray.300" fontSize="lg" maxW="lg">
-            AI-powered trend analysis across Reddit, YouTube, and Amazon.
-            Get structured insights with sentiment analysis and source breakdowns.
-          </Text>
+          <MotionBox
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
+            <Text color="gray.300" fontSize="lg" maxW="lg">
+              AI-powered trend analysis across Reddit, YouTube, and Amazon.
+              Get structured insights with sentiment analysis and source breakdowns.
+            </Text>
+          </MotionBox>
 
-          <Stack direction="row" gap={4} pt={4}>
-            {user ? (
-              <>
-                <Link asChild>
-                  <RouterLink to="/analyze">
-                    <Button colorPalette="green" size="lg">
-                      Start Analyzing
-                    </Button>
-                  </RouterLink>
-                </Link>
-                <Link asChild>
-                  <RouterLink to="/dashboard">
-                    <Button variant="outline" size="lg" color="white" borderColor="gray.600">
-                      Dashboard
-                    </Button>
-                  </RouterLink>
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link asChild>
-                  <RouterLink to="/signup">
-                    <Button colorPalette="green" size="lg">
-                      Get Started
-                    </Button>
-                  </RouterLink>
-                </Link>
-                <Link asChild>
-                  <RouterLink to="/login">
-                    <Button variant="outline" size="lg" color="white" borderColor="gray.600">
-                      Sign In
-                    </Button>
-                  </RouterLink>
-                </Link>
-              </>
-            )}
-          </Stack>
-        </Stack>
+          <MotionBox
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+          >
+            <Stack direction="row" gap={4} pt={4}>
+              {user ? (
+                <>
+                  <Link asChild _hover={{ textDecoration: 'none' }}>
+                    <RouterLink to="/analyze">
+                      <Button className="btn-silicone" colorPalette="green" size="lg">
+                        Start Analyzing
+                      </Button>
+                    </RouterLink>
+                  </Link>
+                  <Link asChild _hover={{ textDecoration: 'none' }}>
+                    <RouterLink to="/dashboard">
+                      <Button className="btn-crystal" size="lg">
+                        Dashboard
+                      </Button>
+                    </RouterLink>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link asChild _hover={{ textDecoration: 'none' }}>
+                    <RouterLink to="/signup">
+                      <Button className="btn-silicone" colorPalette="green" size="lg">
+                        Get Started
+                      </Button>
+                    </RouterLink>
+                  </Link>
+                  <Link asChild _hover={{ textDecoration: 'none' }}>
+                    <RouterLink to="/login">
+                      <Button className="btn-crystal" size="lg">
+                        Sign In
+                      </Button>
+                    </RouterLink>
+                  </Link>
+                </>
+              )}
+            </Stack>
+          </MotionBox>
+        </MotionStack>
 
         {/* Feature highlights */}
-        <Flex
+        <MotionFlex
           mt={20}
           gap={8}
           flexWrap="wrap"
           justifyContent="center"
           maxW="4xl"
+          variants={cardContainerVariants}
+          initial="hidden"
+          animate="visible"
         >
           {[
             {
@@ -197,15 +144,22 @@ export default function Home() {
               desc: 'Use via web dashboard or Telegram bot with synced history.',
             },
           ].map((f) => (
-            <Box
+            <MotionBox
               key={f.title}
-              bg="rgba(255,255,255,0.05)"
+              variants={cardVariants}
+              bg="rgba(0, 0, 0, 0.4)"
               borderWidth="1px"
-              borderColor="gray.800"
-              borderRadius="lg"
+              borderColor="rgba(74, 222, 128, 0.15)"
+              borderRadius="xl"
               p={6}
               maxW="xs"
-              backdropFilter="blur(8px)"
+              backdropFilter="blur(16px)"
+              boxShadow="0 8px 32px rgba(0, 0, 0, 0.3)"
+              _hover={{
+                borderColor: 'rgba(74, 222, 128, 0.3)',
+                boxShadow: '0 8px 32px rgba(74, 222, 128, 0.1)',
+              }}
+              style={{ transition: 'border-color 0.3s ease, box-shadow 0.3s ease' }}
             >
               <Heading size="md" color="white" mb={2}>
                 {f.title}
@@ -213,9 +167,9 @@ export default function Home() {
               <Text color="gray.400" fontSize="sm">
                 {f.desc}
               </Text>
-            </Box>
+            </MotionBox>
           ))}
-        </Flex>
+        </MotionFlex>
       </Flex>
     </Box>
   );

@@ -51,7 +51,7 @@ export default function Login() {
       justifyContent="center"
       minH="calc(100vh - 200px)"
     >
-      <Card.Root maxW="md" w="full">
+      <Card.Root className="glass-panel" maxW="md" w="full">
         <Card.Header textAlign="center">
           <Heading size="xl" mb={1}>
             Welcome back
@@ -82,6 +82,7 @@ export default function Login() {
                 />
               </Field.Root>
               <Button
+                className="btn-silicone"
                 type="submit"
                 colorPalette="green"
                 w="full"
@@ -94,7 +95,7 @@ export default function Login() {
           </form>
           <Stack gap={4} mt={4}>
             <Separator />
-            <Button variant="outline" w="full" onClick={handleGoogle}>
+            <Button className="btn-silicone" variant="outline" w="full" onClick={handleGoogle}>
               Continue with Google
             </Button>
           </Stack>

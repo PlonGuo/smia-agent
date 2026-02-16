@@ -30,8 +30,7 @@ export default function ReportCard({ report, onDelete }: ReportCardProps) {
 
   return (
     <Card.Root
-      _hover={{ borderColor: 'blue.500', shadow: 'md' }}
-      transition="all 0.2s"
+      className="glass-panel"
       cursor="pointer"
     >
       <Card.Body>
@@ -67,7 +66,7 @@ export default function ReportCard({ report, onDelete }: ReportCardProps) {
               </Box>
             </RouterLink>
           </Link>
-          <IconButton
+          <IconButton className="btn-silicone"
             aria-label="Delete report"
             variant="ghost"
             size="sm"
