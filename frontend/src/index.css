@@ -241,6 +241,286 @@ body {
     inset 0 2px 6px rgba(0, 0, 0, 0.25) !important;
 }
 
+/* ============================================
+   NEOMORPHISM UI — Analyze Page Controls
+   ============================================ */
+
+/* --- Responsive Form Layout ---
+   Mobile / tablets: input on top, dropdown + button on second row.
+   Desktop ≥1280px (≈13"): all three in a single row. */
+.neu-form-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.neu-form-input {
+  flex: 1 1 100%;
+}
+
+.neu-form-dropdown {
+  flex: 1 1 0;
+}
+
+.neu-form-btn {
+  flex-shrink: 0;
+}
+
+/* ≥1280px — single row: input expands, dropdown + button stay compact */
+@media (min-width: 1280px) {
+  .neu-form-layout {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+  }
+  .neu-form-input {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .neu-form-dropdown {
+    flex: 0 0 auto;
+    min-width: 170px;
+  }
+}
+
+/* --- Neomorphic Surface ---
+   Base surface that contains neumorphic elements.
+   Elements appear to extrude from or sink into this surface. */
+.neu-surface {
+  --neu-bg: #1a1b2e;
+  --neu-light: rgba(255, 255, 255, 0.05);
+  --neu-dark: rgba(0, 0, 0, 0.5);
+  --neu-text: #e2e8f0;
+  --neu-muted: #94a3b8;
+  --neu-accent: #3b82f6;
+  --neu-accent-glow: rgba(59, 130, 246, 0.25);
+}
+
+:root:not(.dark) .neu-surface {
+  --neu-bg: #dde1e7;
+  --neu-light: rgba(255, 255, 255, 0.8);
+  --neu-dark: rgba(163, 177, 198, 0.6);
+  --neu-text: #1e293b;
+  --neu-muted: #64748b;
+  --neu-accent: #2563eb;
+  --neu-accent-glow: rgba(37, 99, 235, 0.2);
+}
+
+/* --- Neomorphic Input (Inset / Pressed-in) --- */
+.neu-input {
+  background: var(--neu-bg) !important;
+  border: none !important;
+  border-radius: 16px !important;
+  padding: 14px 20px !important;
+  font-size: 16px !important;
+  color: var(--neu-text) !important;
+  box-shadow:
+    inset 4px 4px 8px var(--neu-dark),
+    inset -4px -4px 8px var(--neu-light) !important;
+  transition: box-shadow 0.25s ease !important;
+  outline: none !important;
+}
+
+.neu-input::placeholder {
+  color: var(--neu-muted) !important;
+}
+
+.neu-input:focus {
+  box-shadow:
+    inset 4px 4px 8px var(--neu-dark),
+    inset -4px -4px 8px var(--neu-light),
+    0 0 0 2px var(--neu-accent-glow) !important;
+}
+
+.neu-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Neomorphic Button (Raised / Extruded) ---
+   Uses a lighter background tint + strong top-highlight
+   and bottom shadow for clearly visible layers in dark mode. */
+.btn-neu {
+  background: linear-gradient(145deg, #4f8ff7, #2563eb) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 16px !important;
+  font-weight: 600 !important;
+  color: #fff !important;
+  padding: 14px 28px !important;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+  box-shadow:
+    6px 6px 16px rgba(0, 0, 0, 0.55),
+    -3px -3px 10px rgba(255, 255, 255, 0.06),
+    0 0 20px rgba(59, 130, 246, 0.2),
+    inset 0 2px 3px rgba(255, 255, 255, 0.25),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.3) !important;
+}
+
+.btn-neu:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    8px 8px 20px rgba(0, 0, 0, 0.6),
+    -4px -4px 12px rgba(255, 255, 255, 0.08),
+    0 0 28px rgba(59, 130, 246, 0.3),
+    inset 0 2px 3px rgba(255, 255, 255, 0.3),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.3) !important;
+}
+
+.btn-neu:active:not(:disabled) {
+  transform: translateY(1px) !important;
+  box-shadow:
+    inset 3px 3px 8px rgba(0, 0, 0, 0.5),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.06),
+    0 0 12px rgba(59, 130, 246, 0.15) !important;
+}
+
+.btn-neu:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow:
+    3px 3px 8px rgba(0, 0, 0, 0.3),
+    -2px -2px 5px rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Light mode button — softer glow, clearer raised layers */
+:root:not(.dark) .btn-neu {
+  background: linear-gradient(145deg, #4f8ff7, #2563eb) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow:
+    5px 5px 14px rgba(163, 177, 198, 0.6),
+    -4px -4px 10px rgba(255, 255, 255, 0.8),
+    0 0 16px rgba(37, 99, 235, 0.15),
+    inset 0 2px 3px rgba(255, 255, 255, 0.35),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.12) !important;
+}
+
+:root:not(.dark) .btn-neu:hover:not(:disabled) {
+  box-shadow:
+    7px 7px 18px rgba(163, 177, 198, 0.7),
+    -5px -5px 12px rgba(255, 255, 255, 0.9),
+    0 0 22px rgba(37, 99, 235, 0.22),
+    inset 0 2px 3px rgba(255, 255, 255, 0.4),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.12) !important;
+}
+
+:root:not(.dark) .btn-neu:active:not(:disabled) {
+  box-shadow:
+    inset 3px 3px 6px rgba(163, 177, 198, 0.6),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.5),
+    0 0 10px rgba(37, 99, 235, 0.1) !important;
+}
+
+/* --- Neomorphic Accordion Dropdown --- */
+.neu-accordion {
+  position: relative;
+  min-width: 160px;
+  user-select: none;
+}
+
+.neu-accordion-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--neu-bg) !important;
+  border: none;
+  border-radius: 16px;
+  padding: 14px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--neu-text);
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
+  box-shadow:
+    4px 4px 10px var(--neu-dark),
+    -4px -4px 10px var(--neu-light);
+}
+
+.neu-accordion-trigger:hover {
+  box-shadow:
+    5px 5px 12px var(--neu-dark),
+    -5px -5px 12px var(--neu-light);
+}
+
+.neu-accordion-trigger[data-open="true"] {
+  box-shadow:
+    inset 3px 3px 6px var(--neu-dark),
+    inset -2px -2px 5px var(--neu-light);
+  border-radius: 16px 16px 0 0;
+}
+
+.neu-accordion-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.neu-accordion-chevron {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.25s ease;
+  color: var(--neu-muted);
+  flex-shrink: 0;
+}
+
+.neu-accordion-chevron[data-open="true"] {
+  transform: rotate(180deg);
+}
+
+.neu-accordion-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--neu-bg);
+  border-radius: 0 0 16px 16px;
+  overflow: hidden;
+  box-shadow:
+    4px 4px 10px var(--neu-dark),
+    -4px -4px 10px var(--neu-light);
+  animation: neu-slide-down 0.2s ease-out;
+}
+
+@keyframes neu-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.neu-accordion-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  font-size: 14px;
+  color: var(--neu-text);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.neu-accordion-option:hover {
+  background: var(--neu-accent-glow);
+}
+
+.neu-accordion-option[data-selected="true"] {
+  color: var(--neu-accent);
+  font-weight: 600;
+  box-shadow: inset 2px 2px 4px var(--neu-dark), inset -2px -2px 4px var(--neu-light);
+}
+
+.neu-accordion-option:last-child {
+  border-radius: 0 0 16px 16px;
+}
+
 /* --- Chart Tooltip ---
    Solid opaque tooltip that responds to dark/light
    via the .dark class on <html>. */
