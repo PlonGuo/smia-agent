@@ -37,11 +37,14 @@ class TrendReport(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     query: str = Field(min_length=3, max_length=200)
+    time_range: Literal["day", "week", "month", "year"] = "week"
+    force_refresh: bool = False
 
 
 class AnalyzeResponse(BaseModel):
     report: TrendReport
     message: str = "Analysis complete"
+    cached: bool = False
 
 
 class ReportsListResponse(BaseModel):

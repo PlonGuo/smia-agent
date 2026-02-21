@@ -1,14 +1,23 @@
 import { useState } from 'react';
-import { Button, Field, Input, Stack } from '@chakra-ui/react';
+import { Box, Button, Field, Input, Stack } from '@chakra-ui/react';
 import { Search } from 'lucide-react';
+import type { TimeRange } from '../../../shared/types';
 
 interface AnalysisFormProps {
-  onSubmit: (query: string) => void;
+  onSubmit: (query: string, timeRange: TimeRange) => void;
   loading: boolean;
 }
 
+const TIME_RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
+  { value: 'day', label: 'Past 24h' },
+  { value: 'week', label: 'Past 7 days' },
+  { value: 'month', label: 'Past 30 days' },
+  { value: 'year', label: 'Past year' },
+];
+
 export default function AnalysisForm({ onSubmit, loading }: AnalysisFormProps) {
   const [query, setQuery] = useState('');
+  const [timeRange, setTimeRange] = useState<TimeRange>('week');
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -19,7 +28,7 @@ export default function AnalysisForm({ onSubmit, loading }: AnalysisFormProps) {
       return;
     }
     setError('');
-    onSubmit(trimmed);
+    onSubmit(trimmed, timeRange);
   };
 
   return (
@@ -38,6 +47,30 @@ export default function AnalysisForm({ onSubmit, loading }: AnalysisFormProps) {
           />
           {error && <Field.ErrorText>{error}</Field.ErrorText>}
         </Field.Root>
+        <Box>
+          <select
+            value={timeRange}
+            onChange={(e) => setTimeRange(e.target.value as TimeRange)}
+            disabled={loading}
+            style={{
+              height: '48px',
+              padding: '0 12px',
+              borderRadius: '8px',
+              border: '1px solid var(--chakra-colors-border)',
+              background: 'transparent',
+              color: 'inherit',
+              fontSize: '14px',
+              cursor: 'pointer',
+              minWidth: '140px',
+            }}
+          >
+            {TIME_RANGE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </Box>
         <Button
           className="btn-silicone"
           type="submit"

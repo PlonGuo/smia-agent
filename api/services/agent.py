@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from langfuse import get_client, observe
@@ -12,6 +13,7 @@ from pydantic_ai import Agent
 from core.config import settings
 from core.langfuse_config import flush_langfuse, trace_metadata
 from models.schemas import TrendReport
+from services.cache import get_cached_analysis, set_cached_analysis
 from services.tools import (
     clean_noise_tool,
     fetch_amazon_tool,
@@ -20,6 +22,18 @@ from services.tools import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Agent deps — carries query + time_range through tool calls
+# ---------------------------------------------------------------------------
+
+@dataclass
+class AnalysisDeps:
+    """Dependencies passed to every tool call via RunContext."""
+    query: str
+    time_range: str = "week"
+
 
 # ---------------------------------------------------------------------------
 # Agent definition
@@ -57,11 +71,11 @@ your analysis and source counts.
 """
 
 
-def create_agent() -> Agent[str, TrendReport]:
+def create_agent() -> Agent[AnalysisDeps, TrendReport]:
     """Create and return the SmIA analysis agent.
 
-    The agent uses OpenAI GPT-4o and produces structured TrendReport outputs.
-    The deps type is `str` representing the user query as context.
+    The agent uses OpenAI GPT-4.1 and produces structured TrendReport outputs.
+    The deps type is `AnalysisDeps` containing query + time_range.
     """
     return Agent(
         model=f"openai:{_get_model_name()}",
@@ -81,7 +95,7 @@ def create_agent() -> Agent[str, TrendReport]:
 
 def _get_model_name() -> str:
     """Return the OpenAI model name to use."""
-    return "gpt-4o"
+    return "gpt-4.1"
 
 
 # Singleton agent instance (created once, reused across requests).
@@ -89,9 +103,10 @@ agent = create_agent()
 
 
 @observe(name="pydantic_ai_agent_run")
-async def _run_agent(query: str):
+async def _run_agent(query: str, time_range: str = "week"):
     """Run the PydanticAI agent with Langfuse observation."""
-    return await agent.run(query, deps=query)
+    deps = AnalysisDeps(query=query, time_range=time_range)
+    return await agent.run(query, deps=deps)
 
 
 # ---------------------------------------------------------------------------
@@ -105,16 +120,33 @@ async def analyze_topic(
     user_id: str,
     source: str = "web",
     session_id: str | None = None,
-) -> TrendReport:
+    time_range: str = "week",
+    force_refresh: bool = False,
+) -> tuple[TrendReport, bool]:
     """Run the full analysis pipeline for a user query.
 
-    1. Sets Langfuse trace metadata
-    2. Runs the PydanticAI agent (which calls tools automatically)
-    3. Enriches the result with metadata
-    4. Flushes Langfuse events
+    1. Checks analysis cache (unless force_refresh)
+    2. Sets Langfuse trace metadata
+    3. Runs the PydanticAI agent (which calls tools automatically)
+    4. Enriches the result with metadata
+    5. Stores result in analysis cache
+    6. Flushes Langfuse events
 
-    Returns a validated TrendReport.
+    Returns (TrendReport, cached: bool).
     """
+    # --- Tier 2 cache check: full analysis ---
+    if not force_refresh:
+        cached_report = get_cached_analysis(query, time_range)
+        if cached_report is not None:
+            try:
+                report = TrendReport.model_validate(cached_report)
+                report.user_id = user_id
+                report.source = source  # type: ignore[assignment]
+                logger.info("Returning cached analysis for '%s' (%s)", query, time_range)
+                return report, True
+            except Exception as exc:
+                logger.warning("Cached analysis deserialization failed: %s", exc)
+
     start = time.time()
 
     # Set Langfuse trace context
@@ -122,7 +154,7 @@ async def analyze_topic(
         user_id=user_id,
         session_id=session_id,
         source=source,
-        tags=["analysis", source],
+        tags=["analysis", source, f"time:{time_range}"],
     )
 
     # Set OpenAI API key for the model
@@ -131,7 +163,7 @@ async def analyze_topic(
     os.environ.setdefault("OPENAI_API_KEY", settings.effective_openai_key)
 
     # Run the agent (tool calls are traced individually via @observe on crawlers)
-    result = await _run_agent(query)
+    result = await _run_agent(query, time_range=time_range)
     report: TrendReport = result.output
 
     # Enrich with metadata
@@ -153,7 +185,11 @@ async def analyze_topic(
     except Exception:
         pass
 
+    # Store in analysis cache (exclude per-user metadata)
+    cache_data = report.model_dump(mode="json", exclude={"id", "user_id", "created_at"})
+    set_cached_analysis(query, time_range, cache_data)
+
     # Flush Langfuse
     flush_langfuse()
 
-    return report
+    return report, False

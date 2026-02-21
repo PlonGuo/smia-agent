@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Box, Heading, Text, Stack, Progress } from '@chakra-ui/react';
-import type { TrendReport } from '../../../shared/types';
+import { Badge, Box, Button, Flex, Heading, Text, Stack, Progress } from '@chakra-ui/react';
+import type { TrendReport, TimeRange } from '../../../shared/types';
 import { analyzeQuery } from '../lib/api';
 import { toaster } from '../lib/toaster';
 import AnalysisForm from '../components/AnalysisForm';
 import ReportViewer from '../components/ReportViewer';
+import { RefreshCw, Zap } from 'lucide-react';
 
 const PROGRESS_STAGES = [
   'Understanding query...',
@@ -34,6 +35,9 @@ export default function Analyze() {
     sessionStorage.removeItem(STORAGE_KEY);
     return null;
   });
+  const [isCached, setIsCached] = useState(false);
+  const [lastQuery, setLastQuery] = useState('');
+  const [lastTimeRange, setLastTimeRange] = useState<TimeRange>('week');
   const [stage, setStage] = useState(0);
 
   // Set refresh flag on beforeunload so we know it's a reload, not navigation
@@ -55,9 +59,16 @@ export default function Analyze() {
     }
   }, []);
 
-  const handleAnalyze = async (query: string) => {
+  const handleAnalyze = async (
+    query: string,
+    timeRange: TimeRange,
+    forceRefresh: boolean = false,
+  ) => {
     setLoading(true);
     updateReport(null);
+    setIsCached(false);
+    setLastQuery(query);
+    setLastTimeRange(timeRange);
     setStage(0);
 
     const interval = setInterval(() => {
@@ -65,15 +76,26 @@ export default function Analyze() {
     }, 3000);
 
     try {
-      const result = await analyzeQuery(query);
+      const result = await analyzeQuery(query, timeRange, forceRefresh);
       updateReport(result.report);
-      toaster.success({ title: 'Analysis complete' });
+      setIsCached(result.cached);
+      if (result.cached) {
+        toaster.success({ title: 'Loaded from cache (instant)' });
+      } else {
+        toaster.success({ title: 'Analysis complete' });
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Analysis failed';
       toaster.error({ title: 'Analysis failed', description: message });
     } finally {
       clearInterval(interval);
       setLoading(false);
+    }
+  };
+
+  const handleRegenerate = () => {
+    if (lastQuery) {
+      handleAnalyze(lastQuery, lastTimeRange, true);
     }
   };
 
@@ -107,7 +129,28 @@ export default function Analyze() {
           </Stack>
         )}
 
-        {report && <ReportViewer report={report} />}
+        {report && (
+          <>
+            {isCached && (
+              <Flex alignItems="center" gap={3}>
+                <Badge colorPalette="yellow" size="lg">
+                  <Zap size={14} />
+                  Cached Result
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRegenerate}
+                  disabled={loading}
+                >
+                  <RefreshCw size={14} />
+                  Regenerate
+                </Button>
+              </Flex>
+            )}
+            <ReportViewer report={report} />
+          </>
+        )}
       </Stack>
     </Box>
   );

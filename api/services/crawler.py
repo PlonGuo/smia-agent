@@ -136,8 +136,13 @@ async def fetch_youtube(
     query: str,
     max_videos: int = 5,
     max_comments_per_video: int = 20,
+    published_after: str | None = None,
 ) -> list[dict[str, Any]]:
     """Search YouTube and fetch comments for the top videos.
+
+    Args:
+        published_after: ISO 8601 datetime string (e.g. "2026-02-13T00:00:00Z").
+            When provided, only returns videos published after this date.
 
     Returns a list of dicts:
         {title, video_id, url, description, channel, published_at, comments, source}
@@ -150,16 +155,19 @@ async def fetch_youtube(
     try:
         async with httpx.AsyncClient(timeout=CRAWL_TIMEOUT) as client:
             # 1. Search for videos
+            params: dict[str, Any] = {
+                "part": "snippet",
+                "q": query,
+                "type": "video",
+                "maxResults": max_videos,
+                "order": "relevance",
+                "key": api_key,
+            }
+            if published_after:
+                params["publishedAfter"] = published_after
             search_resp = await client.get(
                 _YT_SEARCH,
-                params={
-                    "part": "snippet",
-                    "q": query,
-                    "type": "video",
-                    "maxResults": max_videos,
-                    "order": "relevance",
-                    "key": api_key,
-                },
+                params=params,
             )
             search_resp.raise_for_status()
             items = [

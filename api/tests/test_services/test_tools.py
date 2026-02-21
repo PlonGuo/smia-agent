@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from services.agent import AnalysisDeps
 from services.tools import (
     _summarize_comments,
     clean_noise_tool,
@@ -63,10 +64,10 @@ class TestSummarizeComments:
 # Tool function tests (mocking crawlers)
 # ---------------------------------------------------------------------------
 
-# Create a mock RunContext
-def _mock_ctx():
+# Create a mock RunContext with AnalysisDeps
+def _mock_ctx(time_range: str = "week"):
     ctx = MagicMock()
-    ctx.deps = "test query"
+    ctx.deps = AnalysisDeps(query="test query", time_range=time_range)
     return ctx
 
 
@@ -83,7 +84,9 @@ class TestFetchRedditTool:
             }
         ]
         with patch("services.tools.fetch_reddit", new_callable=AsyncMock) as mock_fetch, \
-             patch("services.tools.relevance_filter", new_callable=AsyncMock) as mock_filter:
+             patch("services.tools.relevance_filter", new_callable=AsyncMock) as mock_filter, \
+             patch("services.tools.get_cached_fetch", return_value=None), \
+             patch("services.tools.set_cached_fetch"):
             mock_fetch.return_value = posts
             mock_filter.return_value = (posts, 1.0)
             result = await fetch_reddit_tool(_mock_ctx(), "test")
@@ -94,7 +97,9 @@ class TestFetchRedditTool:
 
     @pytest.mark.asyncio
     async def test_returns_no_results_message(self):
-        with patch("services.tools.fetch_reddit", new_callable=AsyncMock) as mock:
+        with patch("services.tools.fetch_reddit", new_callable=AsyncMock) as mock, \
+             patch("services.tools.get_cached_fetch", return_value=None), \
+             patch("services.tools.set_cached_fetch"):
             mock.return_value = []
             result = await fetch_reddit_tool(_mock_ctx(), "nothing")
 
@@ -106,12 +111,12 @@ class TestFetchRedditTool:
         posts_batch1 = [
             {"title": f"Post {i}", "body": f"Content {i}", "url": f"http://r/{i}",
              "comments": [], "source": "reddit"}
-            for i in range(5)
+            for i in range(15)  # week limit is 15
         ]
         posts_batch2 = [
             {"title": f"Post {i}", "body": f"Content {i}", "url": f"http://r/{i}",
              "comments": [], "source": "reddit"}
-            for i in range(10)
+            for i in range(30)
         ]
 
         fetch_mock = AsyncMock(side_effect=[posts_batch1, posts_batch2])
@@ -121,7 +126,9 @@ class TestFetchRedditTool:
         ])
 
         with patch("services.tools.fetch_reddit", fetch_mock), \
-             patch("services.tools.relevance_filter", filter_mock):
+             patch("services.tools.relevance_filter", filter_mock), \
+             patch("services.tools.get_cached_fetch", return_value=None), \
+             patch("services.tools.set_cached_fetch"):
             result = await fetch_reddit_tool(_mock_ctx(), "test")
 
         assert fetch_mock.call_count == 2
@@ -139,11 +146,33 @@ class TestFetchRedditTool:
         filter_mock = AsyncMock(return_value=(posts, 1.0))
 
         with patch("services.tools.fetch_reddit", fetch_mock), \
-             patch("services.tools.relevance_filter", filter_mock):
+             patch("services.tools.relevance_filter", filter_mock), \
+             patch("services.tools.get_cached_fetch", return_value=None), \
+             patch("services.tools.set_cached_fetch"):
             result = await fetch_reddit_tool(_mock_ctx(), "test")
 
         assert fetch_mock.call_count == 1
         assert "Relevant Post" in result
+
+    @pytest.mark.asyncio
+    async def test_uses_cached_data(self):
+        """When cache hit, should skip crawler entirely."""
+        cached_posts = [
+            {"title": "Cached Post", "body": "From cache", "url": "http://r/cached",
+             "comments": [], "source": "reddit"}
+        ]
+        fetch_mock = AsyncMock()
+        filter_mock = AsyncMock(return_value=(cached_posts, 1.0))
+
+        with patch("services.tools.fetch_reddit", fetch_mock), \
+             patch("services.tools.relevance_filter", filter_mock), \
+             patch("services.tools.get_cached_fetch", return_value=cached_posts), \
+             patch("services.tools.set_cached_fetch"):
+            result = await fetch_reddit_tool(_mock_ctx(), "test")
+
+        # Crawler should NOT have been called
+        fetch_mock.assert_not_called()
+        assert "Cached Post" in result
 
 
 class TestFetchYoutubeTool:
@@ -160,7 +189,9 @@ class TestFetchYoutubeTool:
             }
         ]
         with patch("services.tools.fetch_youtube", new_callable=AsyncMock) as mock_fetch, \
-             patch("services.tools.relevance_filter", new_callable=AsyncMock) as mock_filter:
+             patch("services.tools.relevance_filter", new_callable=AsyncMock) as mock_filter, \
+             patch("services.tools.get_cached_fetch", return_value=None), \
+             patch("services.tools.set_cached_fetch"):
             mock_fetch.return_value = videos
             mock_filter.return_value = (videos, 1.0)
             result = await fetch_youtube_tool(_mock_ctx(), "test")
@@ -171,7 +202,9 @@ class TestFetchYoutubeTool:
 
     @pytest.mark.asyncio
     async def test_returns_no_results_message(self):
-        with patch("services.tools.fetch_youtube", new_callable=AsyncMock) as mock:
+        with patch("services.tools.fetch_youtube", new_callable=AsyncMock) as mock, \
+             patch("services.tools.get_cached_fetch", return_value=None), \
+             patch("services.tools.set_cached_fetch"):
             mock.return_value = []
             result = await fetch_youtube_tool(_mock_ctx(), "nothing")
 
@@ -189,7 +222,9 @@ class TestFetchAmazonTool:
             }
         ]
         with patch("services.tools.fetch_amazon", new_callable=AsyncMock) as mock_fetch, \
-             patch("services.tools.relevance_filter", new_callable=AsyncMock) as mock_filter:
+             patch("services.tools.relevance_filter", new_callable=AsyncMock) as mock_filter, \
+             patch("services.tools.get_cached_fetch", return_value=None), \
+             patch("services.tools.set_cached_fetch"):
             mock_fetch.return_value = items
             mock_filter.return_value = (items, 1.0)
             result = await fetch_amazon_tool(_mock_ctx(), "test")
@@ -199,7 +234,9 @@ class TestFetchAmazonTool:
 
     @pytest.mark.asyncio
     async def test_returns_no_results_message(self):
-        with patch("services.tools.fetch_amazon", new_callable=AsyncMock) as mock:
+        with patch("services.tools.fetch_amazon", new_callable=AsyncMock) as mock, \
+             patch("services.tools.get_cached_fetch", return_value=None), \
+             patch("services.tools.set_cached_fetch"):
             mock.return_value = []
             result = await fetch_amazon_tool(_mock_ctx(), "nothing")
 

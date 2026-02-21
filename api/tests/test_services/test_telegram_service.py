@@ -220,7 +220,7 @@ class TestHandleAnalyze:
             patch("services.telegram_service.get_binding_by_telegram_id", return_value=binding),
             patch("services.telegram_service.send_message", new_callable=AsyncMock) as mock_send,
             patch("services.telegram_service.send_typing_action", new_callable=AsyncMock),
-            patch("services.agent.analyze_topic", new_callable=AsyncMock, return_value=mock_report),
+            patch("services.agent.analyze_topic", new_callable=AsyncMock, return_value=(mock_report, False)),
             patch("services.telegram_service.save_report_service", return_value={"id": "r-123"}),
         ):
             await handle_analyze(chat_id=123, telegram_user_id=456, topic="Plaud Note")

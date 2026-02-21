@@ -1,11 +1,12 @@
 # SmIA Progress Tracker
-# Updated: 2026-02-14
+# Updated: 2026-02-20
 
 ## Current Status
 - Phase 1: Backend Foundation — COMPLETE (core services + endpoints + 81 tests passing)
 - Phase 2: Web Frontend — COMPLETE (all pages, components, charts, auth, navigation)
 - Phase 3: Telegram Bot — COMPLETE (webhook, commands, binding, formatting + 50 tests)
 - Phase 4: Observability & Polish — IN PROGRESS (rate limiting, UI polish, deployment done)
+- Caching Feature — COMPLETE (two-tier cache: raw data + analysis, 168 tests passing)
 - Production deployment: LIVE at https://smia-agent.vercel.app
 
 ## Completed
@@ -59,12 +60,27 @@
 - [x] Vercel deployment: env vars configured, frontend + API deployed
 - [x] Production verified: /api/health returns OK, frontend renders correctly
 
+## Recently Completed: Caching Feature (2026-02-20)
+- Two-tier caching: raw crawler data (per-source) + analysis results (per-query)
+- Supabase PostgreSQL tables: `fetch_cache`, `analysis_cache` (SQL migration at api/migrations/001_add_cache_tables.sql)
+- Cache service: api/services/cache.py (normalize_query, get/set for both tiers, TTL config, fetch limits)
+- Time range support: day/week/month/year (default: week) — affects fetch limits, cache keys, TTLs
+- Per-source fetch scaling: Reddit/YouTube scale to 35/30 for year, Amazon caps at 6 (crawl time constraint)
+- YouTube publishedAfter time filter (crawler.py) — previously had no time filtering
+- Agent deps refactored from str to AnalysisDeps dataclass (query + time_range)
+- Frontend: time range dropdown, "Cached Result" badge, "Regenerate" button
+- Telegram: /analyze <topic> [day|week|month|year] syntax, cached response indicator
+- API: AnalyzeRequest accepts time_range + force_refresh, AnalyzeResponse includes cached flag
+- 28 new cache tests + 3 new route tests, all 168 tests passing
+- NOTE: Supabase tables must be created manually — run api/migrations/001_add_cache_tables.sql in SQL Editor
+
 ## Next Steps (remaining Phase 4)
-1. Register Telegram bot with @BotFather and set webhook URL
-2. Langfuse dashboard setup and cost alerts
-3. Documentation (API docs, user guides, README)
-4. E2E smoke tests on production
-5. Minor UI items (retry button, sorting dropdown, accordion sections)
+1. Run SQL migration in Supabase SQL Editor to create cache tables
+2. Register Telegram bot with @BotFather and set webhook URL
+3. Langfuse dashboard setup and cost alerts
+4. Documentation (API docs, user guides, README)
+5. E2E smoke tests on production
+6. Minor UI items (retry button, sorting dropdown, accordion sections)
 
 ## Remaining items (deferred / require manual steps)
 - Register bot with @BotFather (manual step)

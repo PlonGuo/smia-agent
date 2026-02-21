@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from langfuse import observe
@@ -12,6 +13,7 @@ from openai import AsyncOpenAI
 from pydantic_ai import RunContext
 
 from core.config import settings
+from services.cache import get_cached_fetch, get_fetch_limits, set_cached_fetch
 from services.crawler import fetch_amazon, fetch_reddit, fetch_youtube
 
 logger = logging.getLogger(__name__)
@@ -138,7 +140,7 @@ async def relevance_filter(
     try:
         client = _get_openai_client()
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4.1-nano",
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
             max_tokens=100,
@@ -192,26 +194,72 @@ def _summarize_comments(comments: list[dict], max_comments: int = 10) -> str:
     return "\n".join(lines)
 
 
-async def fetch_reddit_tool(ctx: RunContext[str], query: str) -> str:
+# ---------------------------------------------------------------------------
+# Time range helpers
+# ---------------------------------------------------------------------------
+
+# Maps time_range to Reddit's time_filter parameter
+_REDDIT_TIME_FILTER = {
+    "day": "day",
+    "week": "week",
+    "month": "month",
+    "year": "year",
+}
+
+
+def _youtube_published_after(time_range: str) -> str | None:
+    """Compute ISO 8601 publishedAfter datetime for YouTube API."""
+    deltas = {
+        "day": timedelta(days=1),
+        "week": timedelta(weeks=1),
+        "month": timedelta(days=30),
+        "year": timedelta(days=365),
+    }
+    delta = deltas.get(time_range)
+    if not delta:
+        return None
+    dt = datetime.now(timezone.utc) - delta
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+# ---------------------------------------------------------------------------
+# Tool implementations with caching
+# ---------------------------------------------------------------------------
+
+
+async def fetch_reddit_tool(ctx: RunContext, query: str) -> str:
     """Fetch Reddit discussions about the given query.
 
     Searches Reddit using YARS, retrieves top posts and their comments,
     and returns a formatted text summary for LLM analysis.
     Applies relevance filtering with adaptive refetch on low yield.
+    Uses per-source caching to avoid redundant fetches.
     """
-    INITIAL_LIMIT = 5
+    time_range = getattr(ctx.deps, "time_range", "week")
+    limits = get_fetch_limits(time_range)
+    initial_limit = limits["reddit"]
+    reddit_time_filter = _REDDIT_TIME_FILTER.get(time_range, "week")
 
-    posts = await fetch_reddit(query, limit=INITIAL_LIMIT, sort="relevance", time_filter="week")
+    # Check cache
+    cached = get_cached_fetch(query, time_range, "reddit")
+    if cached is not None:
+        posts = cached
+    else:
+        posts = await fetch_reddit(query, limit=initial_limit, sort="relevance", time_filter=reddit_time_filter)
+        if posts:
+            set_cached_fetch(query, time_range, "reddit", posts)
+
     if not posts:
         return f"No Reddit results found for '{query}'."
 
     relevant, yield_ratio = await relevance_filter(query, posts, "reddit")
 
     # Adaptive refetch: if yield < 50% and we got a full batch, try 2x
-    if yield_ratio < 0.5 and len(posts) >= INITIAL_LIMIT:
-        logger.info("Reddit yield %.0f%% — refetching with limit=%d", yield_ratio * 100, INITIAL_LIMIT * 2)
-        posts = await fetch_reddit(query, limit=INITIAL_LIMIT * 2, sort="relevance", time_filter="week")
+    if yield_ratio < 0.5 and len(posts) >= initial_limit and cached is None:
+        logger.info("Reddit yield %.0f%% — refetching with limit=%d", yield_ratio * 100, initial_limit * 2)
+        posts = await fetch_reddit(query, limit=initial_limit * 2, sort="relevance", time_filter=reddit_time_filter)
         if posts:
+            set_cached_fetch(query, time_range, "reddit", posts)
             relevant, yield_ratio = await relevance_filter(query, posts, "reddit")
 
     if not relevant:
@@ -238,25 +286,38 @@ async def fetch_reddit_tool(ctx: RunContext[str], query: str) -> str:
     )
 
 
-async def fetch_youtube_tool(ctx: RunContext[str], query: str) -> str:
+async def fetch_youtube_tool(ctx: RunContext, query: str) -> str:
     """Fetch YouTube video comments about the given query.
 
     Searches YouTube Data API v3, retrieves top videos and their comments,
     and returns a formatted text summary for LLM analysis.
     Applies relevance filtering with adaptive refetch on low yield.
+    Uses per-source caching to avoid redundant fetches.
     """
-    INITIAL_LIMIT = 5
+    time_range = getattr(ctx.deps, "time_range", "week")
+    limits = get_fetch_limits(time_range)
+    initial_limit = limits["youtube"]
+    published_after = _youtube_published_after(time_range)
 
-    videos = await fetch_youtube(query, max_videos=INITIAL_LIMIT, max_comments_per_video=15)
+    # Check cache
+    cached = get_cached_fetch(query, time_range, "youtube")
+    if cached is not None:
+        videos = cached
+    else:
+        videos = await fetch_youtube(query, max_videos=initial_limit, max_comments_per_video=15, published_after=published_after)
+        if videos:
+            set_cached_fetch(query, time_range, "youtube", videos)
+
     if not videos:
         return f"No YouTube results found for '{query}'."
 
     relevant, yield_ratio = await relevance_filter(query, videos, "youtube")
 
-    if yield_ratio < 0.5 and len(videos) >= INITIAL_LIMIT:
-        logger.info("YouTube yield %.0f%% — refetching with limit=%d", yield_ratio * 100, INITIAL_LIMIT * 2)
-        videos = await fetch_youtube(query, max_videos=INITIAL_LIMIT * 2, max_comments_per_video=15)
+    if yield_ratio < 0.5 and len(videos) >= initial_limit and cached is None:
+        logger.info("YouTube yield %.0f%% — refetching with limit=%d", yield_ratio * 100, initial_limit * 2)
+        videos = await fetch_youtube(query, max_videos=initial_limit * 2, max_comments_per_video=15, published_after=published_after)
         if videos:
+            set_cached_fetch(query, time_range, "youtube", videos)
             relevant, yield_ratio = await relevance_filter(query, videos, "youtube")
 
     if not relevant:
@@ -279,31 +340,42 @@ async def fetch_youtube_tool(ctx: RunContext[str], query: str) -> str:
     )
 
 
-async def fetch_amazon_tool(ctx: RunContext[str], query: str) -> str:
+async def fetch_amazon_tool(ctx: RunContext, query: str) -> str:
     """Fetch Amazon product listings and reviews for the given query.
 
     Uses Crawl4AI (with Firecrawl fallback) to scrape Amazon search results
     and returns the extracted markdown content.
     Applies relevance filtering with adaptive refetch on low yield.
+    Uses per-source caching to avoid redundant fetches.
     """
-    INITIAL_MAX = 2
+    time_range = getattr(ctx.deps, "time_range", "week")
+    limits = get_fetch_limits(time_range)
+    initial_max = limits["amazon"]
 
-    try:
-        results = await fetch_amazon(query, max_products=INITIAL_MAX)
-    except RuntimeError as exc:
-        logger.error("Amazon fetch error: %s", exc)
-        return f"[ERROR] Failed to fetch Amazon data for '{query}': {exc}"
+    # Check cache
+    cached = get_cached_fetch(query, time_range, "amazon")
+    if cached is not None:
+        results = cached
+    else:
+        try:
+            results = await fetch_amazon(query, max_products=initial_max)
+        except RuntimeError as exc:
+            logger.error("Amazon fetch error: %s", exc)
+            return f"[ERROR] Failed to fetch Amazon data for '{query}': {exc}"
+        if results:
+            set_cached_fetch(query, time_range, "amazon", results)
 
     if not results:
         return f"No Amazon results found for '{query}'."
 
     relevant, yield_ratio = await relevance_filter(query, results, "amazon")
 
-    if yield_ratio < 0.5 and len(results) >= INITIAL_MAX:
-        logger.info("Amazon yield %.0f%% — refetching with max_products=%d", yield_ratio * 100, INITIAL_MAX * 2)
+    if yield_ratio < 0.5 and len(results) >= initial_max and cached is None:
+        logger.info("Amazon yield %.0f%% — refetching with max_products=%d", yield_ratio * 100, initial_max * 2)
         try:
-            results = await fetch_amazon(query, max_products=INITIAL_MAX * 2)
+            results = await fetch_amazon(query, max_products=initial_max * 2)
             if results:
+                set_cached_fetch(query, time_range, "amazon", results)
                 relevant, yield_ratio = await relevance_filter(query, results, "amazon")
         except RuntimeError as exc:
             logger.error("Amazon refetch error: %s", exc)
@@ -320,7 +392,7 @@ async def fetch_amazon_tool(ctx: RunContext[str], query: str) -> str:
     return f"# Amazon Results for '{query}'\n\n" + "\n\n---\n\n".join(sections)
 
 
-async def clean_noise_tool(ctx: RunContext[str], data: str, source: str) -> str:
+async def clean_noise_tool(ctx: RunContext, data: str, source: str) -> str:
     """Remove irrelevant content (ads, spam, off-topic) from scraped data.
 
     Applies source-aware heuristic cleaning. This is already called automatically

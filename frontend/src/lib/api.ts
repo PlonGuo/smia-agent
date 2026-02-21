@@ -37,10 +37,18 @@ async function apiClient<T>(
   return response.json();
 }
 
-export async function analyzeQuery(query: string): Promise<AnalyzeResponse> {
+export async function analyzeQuery(
+  query: string,
+  timeRange: string = 'week',
+  forceRefresh: boolean = false,
+): Promise<AnalyzeResponse> {
   return apiClient<AnalyzeResponse>('/analyze', {
     method: 'POST',
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({
+      query,
+      time_range: timeRange,
+      force_refresh: forceRefresh,
+    }),
   });
 }
 

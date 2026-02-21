@@ -190,8 +190,11 @@ def format_help() -> str:
     return (
         "\U0001f4d6 <b>SmIA Bot Commands</b>\n"
         "\n"
-        "/analyze &lt;topic&gt; — Analyze a topic across Reddit, YouTube, and Amazon\n"
-        "  Example: <code>/analyze Plaud Note reviews</code>\n"
+        "/analyze &lt;topic&gt; [time] — Analyze a topic across Reddit, YouTube, and Amazon\n"
+        "  Time options: day, week (default), month, year\n"
+        "  Examples:\n"
+        "  <code>/analyze Plaud Note reviews</code>\n"
+        "  <code>/analyze Plaud Note month</code>\n"
         "\n"
         "/history — Show your last 5 analysis reports\n"
         "\n"
@@ -235,6 +238,21 @@ async def handle_help(chat_id: int) -> None:
     await send_message(chat_id, format_help())
 
 
+_VALID_TIME_RANGES = {"day", "week", "month", "year"}
+
+
+def _parse_topic_and_time_range(raw: str) -> tuple[str, str]:
+    """Parse topic and optional time range from analyze command text.
+
+    Supports: /analyze plaud month  ->  ("plaud", "month")
+              /analyze plaud        ->  ("plaud", "week")
+    """
+    parts = raw.strip().rsplit(maxsplit=1)
+    if len(parts) == 2 and parts[1].lower() in _VALID_TIME_RANGES:
+        return parts[0].strip(), parts[1].lower()
+    return raw.strip(), "week"
+
+
 async def handle_analyze(
     chat_id: int,
     telegram_user_id: int,
@@ -254,14 +272,17 @@ async def handle_analyze(
         )
         return
 
+    # Parse time range from topic text (e.g. "plaud month")
+    topic, time_range = _parse_topic_and_time_range(topic)
+
     # Validate topic
-    topic = topic.strip()
     if len(topic) < 3:
         await send_message(
             chat_id,
             format_error(
                 'Please provide a topic to analyze.\n'
-                'Example: <code>/analyze Plaud Note reviews</code>'
+                'Example: <code>/analyze Plaud Note reviews</code>\n'
+                'With time range: <code>/analyze Plaud Note month</code>'
             ),
         )
         return
@@ -284,31 +305,38 @@ async def handle_analyze(
 
     # Send typing indicator
     await send_typing_action(chat_id)
+    time_label = {"day": "past 24h", "week": "past 7 days", "month": "past 30 days", "year": "past year"}
     await send_message(
         chat_id,
         "\u23f3 <b>Analyzing...</b> This may take 1-2 minutes.\n"
-        f"Topic: <i>{_escape_html(topic)}</i>",
+        f"Topic: <i>{_escape_html(topic)}</i>\n"
+        f"Time range: <i>{time_label.get(time_range, time_range)}</i>",
     )
 
     try:
         # Import here to avoid circular imports
         from services.agent import analyze_topic
 
-        report = await analyze_topic(
+        report, cached = await analyze_topic(
             query=topic,
             user_id=user_id,
             source="telegram",
+            time_range=time_range,
         )
 
-        # Save to database (service-role, no user JWT)
+        # Save to database (service-role, no user JWT) — skip if cached
         report_dict = report.model_dump(mode="json")
-        saved = save_report_service(report_dict, user_id)
-        report_id = saved.get("id")
+        if not cached:
+            saved = save_report_service(report_dict, user_id)
+            report_id = saved.get("id")
+        else:
+            report_id = report_dict.get("id")
 
         # Send formatted result
+        cached_note = "\n\u26a1 <i>From cache (instant)</i>" if cached else ""
         await send_message(
             chat_id,
-            format_analysis_result(report_dict, report_id),
+            format_analysis_result(report_dict, report_id) + cached_note,
         )
 
     except Exception as exc:

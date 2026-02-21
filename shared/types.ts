@@ -35,13 +35,18 @@ export interface TrendReport {
   created_at?: string;
 }
 
+export type TimeRange = 'day' | 'week' | 'month' | 'year';
+
 export interface AnalyzeRequest {
   query: string;
+  time_range?: TimeRange;
+  force_refresh?: boolean;
 }
 
 export interface AnalyzeResponse {
   report: TrendReport;
   message: string;
+  cached: boolean;
 }
 
 export interface ReportsListResponse {

@@ -32,6 +32,7 @@ async def analyze(
     """Analyze a topic across Reddit, YouTube, and Amazon.
 
     Requires a valid Supabase JWT in the Authorization header.
+    Supports time_range (day/week/month/year) and force_refresh params.
     """
     # Rate limit check
     allowed, remaining = check_rate_limit(user.user_id, source="web")
@@ -42,25 +43,28 @@ async def analyze(
         )
 
     try:
-        report = await analyze_topic(
+        report, cached = await analyze_topic(
             query=body.query,
             user_id=user.user_id,
             source="web",
+            time_range=body.time_range,
+            force_refresh=body.force_refresh,
         )
 
-        # Persist to Supabase
-        try:
-            saved = _save_report_observed(
-                report_data=report.model_dump(exclude={"id", "created_at"}),
-                user_id=user.user_id,
-                access_token=user.access_token,
-            )
-            report.id = saved.get("id")
-            report.created_at = saved.get("created_at")
-        except Exception as save_exc:
-            logger.error("Failed to save report: %s", save_exc)
+        # Persist to Supabase (skip if cached — already saved previously)
+        if not cached:
+            try:
+                saved = _save_report_observed(
+                    report_data=report.model_dump(exclude={"id", "created_at"}),
+                    user_id=user.user_id,
+                    access_token=user.access_token,
+                )
+                report.id = saved.get("id")
+                report.created_at = saved.get("created_at")
+            except Exception as save_exc:
+                logger.error("Failed to save report: %s", save_exc)
 
-        return AnalyzeResponse(report=report)
+        return AnalyzeResponse(report=report, cached=cached)
     except Exception as exc:
         tb = traceback.format_exc()
         logger.error("Analysis failed for query '%s': %s\n%s", body.query, exc, tb)
