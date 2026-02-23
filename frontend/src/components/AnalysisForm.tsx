@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Box, Button, Field, Stack } from '@chakra-ui/react';
+import { Box, Button, Field } from '@chakra-ui/react';
 import { Search, ChevronDown, Check, Clock } from 'lucide-react';
 import type { TimeRange } from '../../../shared/types';
 
