@@ -9,14 +9,25 @@ if _api_dir not in sys.path:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.langfuse_config import init_langfuse
+from contextlib import asynccontextmanager
+
 from routes.analyze import router as analyze_router
 from routes.reports import router as reports_router
 from routes.telegram import router as telegram_router
 from routes.auth import router as auth_router
+from routes.admin import router as admin_router
 
 init_langfuse()
 
-app = FastAPI(title="SmIA API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app):
+    from services.database import seed_admin_if_empty
+    seed_admin_if_empty()
+    yield
+
+
+app = FastAPI(title="SmIA API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,6 +41,7 @@ app.include_router(analyze_router)
 app.include_router(reports_router)
 app.include_router(telegram_router)
 app.include_router(auth_router)
+app.include_router(admin_router)
 
 
 @app.get("/api/health")

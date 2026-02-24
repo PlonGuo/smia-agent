@@ -32,6 +32,7 @@ When starting a new feature, read the corresponding plan first. Update status to
 - **Playwright MCP**: Use for web browsing, reading documentation, finding GitHub repos, and E2E testing
 - **Supabase MCP**: Use for database schema creation, RLS policies, and data operations
 - **Github MCP**: Use for repo operations, pushing to github after the completion of each task
+- **Vercel MCP**: Use for deployment, logs, environment variables, and Vercel project configuration
 
 ## Agent Teams
 
@@ -52,7 +53,8 @@ You are authorized to spawn sub-agents for parallel work when beneficial. Recomm
   2. Update Plans Index status in this file (`Pending` → `Done`)
   3. Check off completed items in `docs/features.md`
 - **Test as you go**: Write tests for each feature. Run them before moving on.
-- **Git discipline**: Do NOT git add, commit, or push automatically. Only run git operations when the user explicitly asks.
+- **Git discipline (plan tasks)**: When executing tasks from `docs/plans/`, auto-commit and push to the corresponding remote branch after completing each todo list item. No user confirmation needed.
+- **Git discipline (non-plan tasks)**: For work NOT covered by a plan file, do NOT push automatically. Ask the user for permission before pushing.
 - **Use MCP tools actively**: Playwright for docs/learning, Supabase for DB operations.
 - **Package managers**: Use `uv` for backend (Python), `pnpm` for frontend (Node.js). Never use npm or pip directly.
 

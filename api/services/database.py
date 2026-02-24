@@ -303,3 +303,90 @@ def get_binding_by_telegram_id(telegram_user_id: int) -> dict | None:
         return None
 
 
+# ---------------------------------------------------------------------------
+# Digest permission helpers (C2: all sync — matching existing pattern)
+# ---------------------------------------------------------------------------
+
+def is_admin(user_id: str, access_token: str) -> bool:
+    """Check if user is in admins table."""
+    client = get_supabase_client(access_token)
+    try:
+        result = (
+            client.table("admins")
+            .select("id")
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        return result is not None
+    except APIError:
+        return False
+
+
+def get_digest_access_status(
+    user_id: str, access_token: str
+) -> str:
+    """Returns: 'admin' | 'approved' | 'pending' | 'rejected' | 'none'"""
+    if is_admin(user_id, access_token):
+        return "admin"
+
+    client = get_supabase_client(access_token)
+
+    # Check digest_authorized_users
+    try:
+        authorized = (
+            client.table("digest_authorized_users")
+            .select("id")
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        if authorized is not None:
+            return "approved"
+    except APIError:
+        pass
+
+    # Check latest access request
+    try:
+        request = (
+            client.table("digest_access_requests")
+            .select("status")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .maybe_single()
+            .execute()
+        )
+        if request is not None:
+            return request.data["status"]  # 'pending' or 'rejected'
+    except APIError:
+        pass
+
+    return "none"
+
+
+def get_all_admin_emails() -> list[str]:
+    """Query admins table for all admin emails (service role)."""
+    client = get_supabase_client()  # service role
+    try:
+        result = client.table("admins").select("email").execute()
+        return [row["email"] for row in result.data]
+    except APIError as exc:
+        logger.error("Failed to fetch admin emails: %s", exc)
+        return []
+
+
+def seed_admin_if_empty() -> None:
+    """Bootstrap: if admins table is empty, seed with ADMIN_EMAIL. Idempotent."""
+    if not settings.admin_email:
+        return
+    client = get_supabase_client()  # service role
+    try:
+        count_resp = client.table("admins").select("id", count="exact").execute()
+        if (count_resp.count or 0) == 0:
+            client.rpc("seed_admin", {"p_email": settings.admin_email}).execute()
+            logger.info("Seeded admin: %s", settings.admin_email)
+    except Exception as exc:
+        logger.error("Failed to seed admin: %s", exc)
+
+

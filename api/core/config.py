@@ -46,6 +46,17 @@ class Settings(BaseSettings):
     # Rate Limiting
     rate_limit_per_hour: int = 10
 
+    # Email (Resend)
+    resend_api_key: str = ""
+    admin_email: str = ""  # Bootstrap only: seeds first admin
+
+    # Bluesky (optional)
+    bluesky_app_password: str = ""
+
+    # Internal (two-phase pipeline trigger)
+    internal_secret: str = "smia-internal-digest-trigger-key"
+    app_url: str = ""  # Set in Vercel env, e.g. https://smia-agent.vercel.app
+
     # Environment (auto-detected)
     environment: str = ""
 
