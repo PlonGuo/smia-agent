@@ -483,3 +483,55 @@ async def handle_update(update: dict) -> None:
                 "Unknown command. Use /help to see available commands."
             ),
         )
+
+
+# ---------------------------------------------------------------------------
+# Digest notifications
+# ---------------------------------------------------------------------------
+
+
+async def notify_digest_ready(total_items: int, categories: dict) -> None:
+    """Send digest notification to all authorized users with linked Telegram."""
+    client = get_supabase_client()
+
+    # Get all admin + authorized user IDs
+    admins = client.table("admins").select("user_id").execute()
+    authorized = client.table("digest_authorized_users").select("user_id").execute()
+
+    user_ids = set()
+    for row in admins.data:
+        user_ids.add(row["user_id"])
+    for row in authorized.data:
+        user_ids.add(row["user_id"])
+
+    if not user_ids:
+        return
+
+    # Find linked Telegram accounts
+    bindings = (
+        client.table("user_bindings")
+        .select("telegram_user_id")
+        .in_("user_id", list(user_ids))
+        .not_.is_("telegram_user_id", "null")
+        .execute()
+    )
+
+    if not bindings.data:
+        return
+
+    # Format categories
+    cat_text = ", ".join(f"{k}: {v}" for k, v in sorted(categories.items(), key=lambda x: -x[1]))
+
+    message = (
+        "\U0001f4f0 <b>AI Daily Digest is ready!</b>\n\n"
+        f"\U0001f4ca {total_items} items analyzed\n"
+        f"\U0001f3f7 {cat_text}\n\n"
+        f'<a href="{WEB_APP_URL}/ai-daily-report">View digest</a>'
+    )
+
+    for binding in bindings.data:
+        try:
+            await send_message(binding["telegram_user_id"], message)
+        except Exception as exc:
+            logger.error("Failed to notify TG user %s: %s",
+                         binding["telegram_user_id"], exc)

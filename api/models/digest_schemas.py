@@ -68,7 +68,8 @@ class DailyDigestDB(DailyDigestLLMOutput):
 # --- API request/response models ---
 
 class AccessRequestCreate(BaseModel):
-    reason: str = Field(min_length=10, max_length=500)
+    email: str
+    reason: str = Field(default="", max_length=500)
 
 
 class AccessRequestResponse(BaseModel):

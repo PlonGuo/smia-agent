@@ -204,16 +204,18 @@ class TestDailyDigestDB:
 
 class TestAccessRequestCreate:
     def test_valid(self):
-        req = AccessRequestCreate(reason="I need access to view AI daily reports for my research.")
+        req = AccessRequestCreate(email="user@test.com", reason="I need access to view AI daily reports for my research.")
+        assert req.email == "user@test.com"
         assert len(req.reason) > 10
 
     def test_too_short(self):
-        with pytest.raises(ValidationError):
-            AccessRequestCreate(reason="Please")
+        # reason defaults to "" which is valid now (optional reason)
+        req = AccessRequestCreate(email="user@test.com", reason="")
+        assert req.reason == ""
 
     def test_too_long(self):
         with pytest.raises(ValidationError):
-            AccessRequestCreate(reason="x" * 501)
+            AccessRequestCreate(email="user@test.com", reason="x" * 501)
 
 
 class TestAccessRequestResponse:
