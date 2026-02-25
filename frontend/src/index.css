@@ -69,6 +69,14 @@ body {
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.08);
 }
 
+/* --- Nav Link: no underline on hover --- */
+.glass-nav a,
+.glass-nav a:hover,
+.glass-drawer a,
+.glass-drawer a:hover {
+  text-decoration: none !important;
+}
+
 /* --- Glass Navigation Bar --- */
 .glass-nav {
   background: rgba(10, 10, 15, 0.65) !important;

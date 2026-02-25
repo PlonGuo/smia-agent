@@ -151,7 +151,7 @@ function App() {
       </ErrorBoundary>
       <Toaster toaster={toaster}>
         {(toast) => (
-          <ToastRoot>
+          <ToastRoot minW="320px" maxW="420px">
             <ToastIndicator />
             <ToastTitle>{toast.title}</ToastTitle>
             <ToastDescription>{toast.description}</ToastDescription>
