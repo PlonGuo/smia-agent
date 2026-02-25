@@ -442,8 +442,10 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
             print(f"[TG /digest] Digest in progress ({status}), told user to wait")
 
         elif result.get("claimed"):
-            # We just triggered generation — fire HTTP to a separate function
-            # so collectors get their own 60s Vercel budget (not the webhook's).
+            # We just claimed the lock — run collectors inline.
+            # With Vercel maxDuration=60s and collectors taking ~20s,
+            # this fits comfortably. Phase 2 is triggered via HTTP by
+            # run_collectors_phase itself.
             await send_message(
                 chat_id,
                 "\U0001f680 <b>Generating today's digest...</b>\n\n"
@@ -452,26 +454,14 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
                 f'<a href="{WEB_APP_URL}/ai-daily-report">View progress on web</a>',
             )
             try:
-                app_url = settings.effective_app_url
-                print(f"[TG /digest] Claimed! Triggering collectors via HTTP to {app_url}")
-                if app_url:
-                    collect_url = f"{app_url}/api/ai-daily-report/internal/collect"
-                    print(f"[TG /digest] POST {collect_url}")
-                    async with httpx.AsyncClient(timeout=15) as client:
-                        resp = await client.post(
-                            collect_url,
-                            json={"digest_id": result["digest_id"]},
-                            headers={"x-internal-secret": settings.internal_secret},
-                        )
-                        print(f"[TG /digest] Collect trigger response: {resp.status_code} {resp.text[:200]}")
-                else:
-                    print("[TG /digest] WARNING: No app_url — running collectors inline (may timeout)")
-                    from services.digest_service import run_collectors_phase
-                    await run_collectors_phase(result["digest_id"])
+                print(f"[TG /digest] Claimed! Running collectors inline for digest_id={result['digest_id']}")
+                from services.digest_service import run_collectors_phase
+                await run_collectors_phase(result["digest_id"])
+                print("[TG /digest] Collectors phase completed successfully")
             except Exception as exc:
                 tb = traceback.format_exc()
-                print(f"[TG /digest] ERROR triggering collectors: {exc}\n{tb}")
-                logger.error("Telegram digest trigger failed: %s", exc)
+                print(f"[TG /digest] ERROR running collectors: {exc}\n{tb}")
+                logger.error("Telegram digest collectors failed: %s", exc)
 
         else:
             # Failed or unknown — suggest web

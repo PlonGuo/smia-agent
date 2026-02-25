@@ -30,7 +30,10 @@ logger = logging.getLogger(__name__)
 def claim_or_get_digest(user_id: str, access_token: str) -> dict:
     """Claim lock or return current status. Returns FAST — does NOT run pipeline.
 
-    Called from GET /api/ai-daily-report/today.
+    Called from GET /api/ai-daily-report/today and Telegram /digest.
+
+    Includes staleness recovery: if a digest has been stuck in 'collecting' or
+    'analyzing' for more than 5 minutes, it is reset to allow re-generation.
     """
     client = get_supabase_client()  # service role for RPC
     today = date.today().isoformat()
@@ -39,7 +42,39 @@ def claim_or_get_digest(user_id: str, access_token: str) -> dict:
     row = result.data  # JSONB: {"claimed": bool, "digest_id": "...", "current_status": "..."}
 
     if not row["claimed"]:
-        if row["current_status"] == "completed":
+        current_status = row["current_status"]
+
+        # Staleness recovery: if stuck in collecting/analyzing for >5 min, reset
+        if current_status in ("collecting", "analyzing"):
+            digest_row = (
+                client.table("daily_digests")
+                .select("updated_at")
+                .eq("id", row["digest_id"])
+                .single()
+                .execute()
+            )
+            updated_at = datetime.fromisoformat(
+                digest_row.data["updated_at"].replace("Z", "+00:00")
+            )
+            stale_threshold = datetime.now(timezone.utc) - timedelta(minutes=5)
+            if updated_at < stale_threshold:
+                logger.warning(
+                    "Digest %s stuck at '%s' since %s — resetting to allow re-generation",
+                    row["digest_id"], current_status, updated_at.isoformat(),
+                )
+                print(f"[DIGEST] Stale digest detected (status={current_status}, "
+                      f"updated={updated_at.isoformat()}). Resetting.")
+                client.table("daily_digests").update({
+                    "status": "collecting",
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }).eq("id", row["digest_id"]).execute()
+                return {
+                    "status": "collecting",
+                    "digest_id": row["digest_id"],
+                    "claimed": True,
+                }
+
+        if current_status == "completed":
             digest = (
                 client.table("daily_digests")
                 .select("*")
@@ -52,7 +87,7 @@ def claim_or_get_digest(user_id: str, access_token: str) -> dict:
                 "digest_id": row["digest_id"],
                 "digest": digest.data,
             }
-        return {"status": row["current_status"], "digest_id": row["digest_id"]}
+        return {"status": current_status, "digest_id": row["digest_id"]}
 
     # We won the race — return immediately, pipeline runs in BackgroundTask
     return {"status": "collecting", "digest_id": row["digest_id"], "claimed": True}
