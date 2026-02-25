@@ -1,117 +1,65 @@
-# SmIA Progress Tracker
-# Updated: 2026-02-20
+# SmIA Progress Tracker — AI Daily Digest Feature
+# Updated: 2026-02-24
 
-## Current Status
-- Phase 1: Backend Foundation — COMPLETE (core services + endpoints + 81 tests passing)
-- Phase 2: Web Frontend — COMPLETE (all pages, components, charts, auth, navigation)
-- Phase 3: Telegram Bot — COMPLETE (webhook, commands, binding, formatting + 50 tests)
-- Phase 4: Observability & Polish — IN PROGRESS (rate limiting, UI polish, deployment done)
-- Caching Feature — COMPLETE (two-tier cache: raw data + analysis, 168 tests passing)
-- Production deployment: LIVE at https://smia-agent.vercel.app
+## Feature Overview
+AI Daily Intelligence Aggregator — daily digest from arXiv, GitHub Trending, RSS/Blogs, and Bluesky.
+Plan: docs/plans/2026-02-24-ai-daily-digest.md
 
-## Completed
-- [x] Initializer phase (skeleton, Supabase, YARS, frontend scaffold, git setup)
-- [x] Pydantic models with validation (schemas.py: TrendReport, AnalyzeRequest, etc.)
-- [x] Database service (database.py: full Supabase CRUD — reports + bindings)
-- [x] Langfuse integration (langfuse_config.py: v3 API — init, trace_metadata, flush)
-- [x] Crawler service (crawler.py: Reddit/YARS, YouTube/API v3, Amazon/Crawl4AI+Firecrawl)
-- [x] PydanticAI agent (agent.py: GPT-4o, structured TrendReport output, 4 tools)
-- [x] Agent tools (tools.py: fetch_reddit, fetch_youtube, fetch_amazon, clean_noise)
-- [x] Auth dependency (core/auth.py: Supabase JWT verification)
-- [x] POST /api/analyze endpoint (routes/analyze.py)
-- [x] Reports CRUD (routes/reports.py: list w/ filters, get by ID, delete)
-- [x] Auth/binding endpoints (routes/auth.py: bind code gen, confirm, unbind)
-- [x] 81 unit tests: models (21), routes (24), services (36) — all passing
-- [x] ChakraProvider v3 wired in main.tsx with custom theme system
-- [x] Typed API client with auto auth headers (api.ts)
-- [x] useAuth hook (Supabase Auth: signIn, signUp, signInWithGoogle, signOut)
-- [x] Login page (email/password + Google OAuth)
-- [x] Signup page (email/password/confirm + Google OAuth)
-- [x] ProtectedRoute wrapper (redirects to /login)
-- [x] Landing page with Matrix-style canvas animation + feature cards
-- [x] Analysis page with AnalysisForm + progress bar + ReportViewer
-- [x] ReportViewer component (summary, insights, discussions, keywords, charts, metadata)
-- [x] SentimentChart (Recharts line chart) and SourceDistribution (Recharts pie chart)
-- [x] Dashboard with filtering (sentiment), search, pagination, delete
-- [x] ReportCard component with sentiment badges, timestamps, delete
-- [x] Report detail page with full viewer, share, delete, back navigation
-- [x] Settings page (account info, theme toggle, Telegram bind/unbind, danger zone)
-- [x] Layout component with nav bar, color mode toggle, logout
-- [x] useColorMode hook (localStorage persistence, dark class toggling)
-- [x] Global toast notifications (Chakra Toaster)
-- [x] shared/types.ts expanded with ReportsListResponse, BindCodeResponse, BindConfirmRequest
-- [x] Telegram webhook endpoint (routes/telegram.py: POST /telegram/webhook with background tasks)
-- [x] Telegram service (telegram_service.py: handle_update dispatcher, all command handlers)
-- [x] Bot commands: /start, /help, /analyze, /bind, /history — all implemented
-- [x] HTML-formatted messages with emoji (PRD F-08 format)
-- [x] Account binding via /bind — validates code, prevents duplicates, confirms
-- [x] Cross-platform sync — Telegram reports saved with source='telegram', same user_id
-- [x] Service-role database functions for Telegram (save_report_service, get_recent_reports_by_user)
-- [x] Webhook setup script (scripts/setup_telegram_webhook.py)
-- [x] Error handling: unbound users, invalid queries, analysis failures, unknown commands
-- [x] 50 new Telegram tests (formatting, handlers, dispatcher, database) — 131 total passing
-- [x] Rate limiting: web (100/hr) and Telegram (10/hr) via Supabase query counting
-- [x] UI polish: skeleton loading states (Dashboard, ReportDetail, ReportViewer charts)
-- [x] ErrorBoundary component wrapping all routes
-- [x] Lazy-loaded routes (React.lazy + Suspense for all 7 pages)
-- [x] Lazy-loaded chart components (SentimentChart, SourceDistribution)
-- [x] Supabase RLS policy optimization: (select auth.uid()) for performance
-- [x] All Supabase indexes verified in place
-- [x] Vercel deployment: env vars configured, frontend + API deployed
-- [x] Production verified: /api/health returns OK, frontend renders correctly
+## Implementation Steps
 
-## Recently Completed: Caching Feature (2026-02-20)
-- Two-tier caching: raw crawler data (per-source) + analysis results (per-query)
-- Supabase PostgreSQL tables: `fetch_cache`, `analysis_cache` (SQL migration at api/migrations/001_add_cache_tables.sql)
-- Cache service: api/services/cache.py (normalize_query, get/set for both tiers, TTL config, fetch limits)
-- Time range support: day/week/month/year (default: week) — affects fetch limits, cache keys, TTLs
-- Per-source fetch scaling: Reddit/YouTube scale to 35/30 for year, Amazon caps at 6 (crawl time constraint)
-- YouTube publishedAfter time filter (crawler.py) — previously had no time filtering
-- Agent deps refactored from str to AnalysisDeps dataclass (query + time_range)
-- Frontend: time range dropdown, "Cached Result" badge, "Regenerate" button
-- Telegram: /analyze <topic> [day|week|month|year] syntax, cached response indicator
-- API: AnalyzeRequest accepts time_range + force_refresh, AnalyzeResponse includes cached flag
-- 28 new cache tests + 3 new route tests, all 168 tests passing
-- NOTE: Supabase tables must be created manually — run api/migrations/001_add_cache_tables.sql in SQL Editor
+- [x] Step 1.1: Create migration SQL (002_add_digest_tables.sql)
+- [x] Step 1.2: Run migration via Supabase MCP (8 tables + RLS + RPC functions created)
+- [x] Step 1.3: Enable Supabase Realtime (daily_digests, digest_access_requests, user_bindings)
+- [x] Step 1.4: Create Pydantic models (digest_schemas.py)
+- [x] Step 1.5: Add TypeScript types (shared/types.ts)
+- [x] Step 1.6: Seed admin (jason.ghzr@gmail.com)
+- [x] Step 1.7: Write model unit tests (25 tests passing)
+- [x] Step 2.1: Update config (resend_api_key, admin_email, bluesky_app_password, internal_secret, app_url)
+- [x] Step 2.2: Create email service (Resend API)
+- [x] Step 2.3: Add permission helpers (is_admin, get_digest_access_status, seed_admin_if_empty)
+- [x] Step 2.4: Create admin routes + register in index.py + lifespan for admin seeding
+- [x] Step 2.5: Write tests (13 tests passing)
+- [x] Step 3.1: Install dependencies (arxiv, feedparser — resend done in Step 2)
+- [x] Step 3.2: Create Collector Protocol + Registry (base.py)
+- [x] Step 3.3: Create 4 collectors (arXiv, GitHub, RSS, Bluesky) + rss_feeds.json config
+- [x] Step 3.4: Self-registration in __init__.py
+- [x] Step 3.5: Write collector unit tests (22 tests passing)
+- [ ] Step 3.6: Live smoke tests (deferred to Step 11)
+- [ ] Step 4.1: Create digest agent (PydanticAI, no tools)
+- [ ] Step 4.2: Write agent tests
+- [ ] Step 5.1: Create two-phase orchestrator (collectors phase + LLM phase)
+- [ ] Step 5.2: Add Telegram notification
+- [ ] Step 5.3: Write orchestrator tests
+- [ ] Step 6.1: Create report routes + internal analyze endpoint
+- [ ] Step 6.2: Create bookmark + feedback routes
+- [ ] Step 6.3: Register routers + admin seeding in index.py
+- [ ] Step 6.4: Create CLI
+- [ ] Step 6.5: Write route tests
+- [ ] Step 7.1: Create Realtime hook
+- [ ] Step 7.2: Refactor Settings.tsx polling to Realtime
+- [ ] Step 7.3: Create useDigestPermissions hook
+- [ ] Step 7.4: Create Admin page + components
+- [ ] Step 7.5: Add routes to App.tsx + nav items to Layout.tsx
+- [ ] Step 7.6: Add API functions to api.ts
+- [ ] Step 8.1: Create AiDailyReport.tsx (4-state page)
+- [ ] Step 8.2: KanbanBoard + KanbanCard
+- [ ] Step 8.3: DigestSkeleton (shimmer + progress)
+- [ ] Step 8.4: CategoryBreakdown chart
+- [ ] Step 8.5: Mobile responsive
+- [ ] Step 9: History, Sharing, Export pages
+- [ ] Step 11: Integration tests + polish
 
-## Next Steps (remaining Phase 4)
-1. Run SQL migration in Supabase SQL Editor to create cache tables
-2. Register Telegram bot with @BotFather and set webhook URL
-3. Langfuse dashboard setup and cost alerts
-4. Documentation (API docs, user guides, README)
-5. E2E smoke tests on production
-6. Minor UI items (retry button, sorting dropdown, accordion sections)
-
-## Remaining items (deferred / require manual steps)
-- Register bot with @BotFather (manual step)
-- Manual E2E testing of all Telegram commands
-- Cross-platform sync verification (requires full E2E test)
-- Full auth flow E2E test (manual, requires Supabase email provider config)
-- Retry button on analysis failure
-- Dashboard sorting dropdown
-- Accordion sections in report detail
-- Delete account with cascade confirmation
-- Full E2E flow verification
-- Langfuse dashboard verification (manual)
-- Live integration test (requires valid API keys)
+## Architecture Decision: Two-Phase Pipeline
+Split collectors and LLM into separate serverless functions to stay within Vercel Hobby 60s limit:
+- Phase 1 (Function A): Run 4 collectors → save to cache → HTTP trigger Phase 2
+- Phase 2 (Function B): Read cached data → LLM analysis → save completed digest
+Each phase gets its own 60s budget. Internal endpoint secured with shared secret.
 
 ## Blockers
 - None
 
 ## Key Decisions
-- YARS: git clone (not pip install) per user preference
-- pnpm instead of npm for frontend package management (npm used for Vercel build)
-- Chakra UI v3 uses createSystem/defineConfig API (not v2's extendTheme)
-- Chakra UI v3 has no built-in useColorMode — custom hook toggles .dark class
-- Chakra UI v3 Toaster requires children render prop with ToastRoot/ToastTitle/etc.
-- Langfuse v3 API: `from langfuse import observe, get_client` (not v2 decorators)
-- PydanticAI v1.59: `agent._function_toolset.tools` for tool introspection
-- Supabase project: fueryelktpkkwipwyswu
-- crawl4ai: optional dependency (excluded from Vercel due to 250MB limit), firecrawl fallback used
-- pydantic-ai-slim[openai] used on Vercel to reduce bundle size (full pydantic-ai pulls all providers)
-- Frontend .env not committed (in .gitignore), requires VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
-- Telegram bot uses httpx for direct Bot API calls (serverless-compatible, not python-telegram-bot polling)
-- Webhook processes updates via BackgroundTasks to return 200 quickly
-- Vercel deployment: .vercelignore excludes uv.lock/pyproject.toml/libs/tests to use requirements.txt
-- sys.path fix in index.py needed for Vercel (api/ dir not auto-added to Python path)
-- Production URL: https://smia-agent.vercel.app
+- Two-phase pipeline split for Vercel Hobby compatibility
+- GPT-4.1 for digest analysis (~$0.12/day)
+- Lazy trigger (no cron) — first authorized user visit generates digest
+- PostgreSQL atomic RPC for race condition handling

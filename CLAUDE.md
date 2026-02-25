@@ -6,17 +6,33 @@ You are the lead engineer building SmIA (Social Media Intelligence Agent), a dua
 
 ## Project Context
 
-- Read `docs/PRD.md` in this repo for the complete product requirements
-- Read `docs/yars_doc.md` and `example.py` for the use of yars lib to fetch reddit info, check the github for installation if have quesitons: https://github.com/PlonGuo/yars.git
-- In developing stage, all api keys and tokens are in local.env file.
-- Read this article for architectural guidance on long-running agent harnesses: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
-- Find and study the accompanying quickstart repo on GitHub for code examples
+- `docs/PRD.md` — original product requirements (Phase 1-3 complete, production-deployed)
+- `docs/features.md` — master feature checklist with completion status
+- `docs/yars_doc.md` + `example.py` — YARS Reddit scraping library (cloned to `libs/yars/`, see https://github.com/PlonGuo/yars.git)
+- `local.env` — all API keys and tokens (dev stage, never commit)
+- `claude-progress.txt` — current session progress tracker
+
+## Plans Index
+
+When starting a new feature, read the corresponding plan first. Update status to `Done` when a plan is fully implemented.
+
+| Plan | Status | Description |
+|------|--------|-------------|
+| `docs/plans/2026-02-13-initializer-phase.md` | Done | Project skeleton setup |
+| `docs/plans/2026-02-13-initializer-phase-design.md` | Done | Initializer design doc |
+| `docs/plans/2026-02-15-landing-page-3d-upgrade.md` | Done | 3D visual refresh |
+| `docs/plans/2026-02-15-landing-page-3d-upgrade-design.md` | Done | 3D upgrade design doc |
+| `docs/plans/2026-02-16-relevance-gated-adaptive-fetching.md` | Done | Smart data fetching |
+| `docs/plans/2026-02-16-relevance-gated-adaptive-fetching-design.md` | Done | Adaptive fetching design doc |
+| `docs/plans/2026-02-24-ai-daily-digest.md` | Pending | AI Daily Report feature |
+| `docs/plans/security-hardening.md` | Pending | Security improvements |
 
 ## Available MCP Tools
 
 - **Playwright MCP**: Use for web browsing, reading documentation, finding GitHub repos, and E2E testing
 - **Supabase MCP**: Use for database schema creation, RLS policies, and data operations
 - **Github MCP**: Use for repo operations, pushing to github after the completion of each task
+- **Vercel MCP**: Use for deployment, logs, environment variables, and Vercel project configuration
 
 ## Agent Teams
 
@@ -26,25 +42,19 @@ You are authorized to spawn sub-agents for parallel work when beneficial. Recomm
 - **Frontend Agent**: React + Chakra UI + Recharts
 - **Infrastructure Agent**: Supabase schema, Vercel config, Langfuse setup
 
-## Your First Task (Initializer Phase)
-
-Do NOT start coding immediately. First:
-
-1. **Learn**: Use Playwright MCP to read the Anthropic harness article above and find its quickstart GitHub repo. Study the patterns (initializer agent, progress tracking, feature lists).
-2. **Read**: Read `docs/PRD.md` thoroughly.
-3. **Create `docs/features.md`**: Break the PRD into a granular, ordered checklist of individually completable features. Group by phase (Phase 1-4 per PRD Section 9). Each feature should be completable in one session.
-4. **Create `claude-progress.txt`**: Initialize with current status, next steps, and blockers. Update this file at the END of every session.
-5. **Set up project skeleton**: Initialize uv project, create directory structure per PRD Section 4.3, install core dependencies.
-6. **Set up Supabase**: Use Supabase MCP to create tables and RLS policies per PRD Section 6.1.
-7. **Commit**: Make an initial commit with the skeleton.
-
 ## Working Rules
 
+- **Plan-driven development**: When starting a new feature, read the corresponding plan in `docs/plans/`. Execute it step-by-step.
+- **Follow existing patterns**: Before creating new files, check similar routes/components/services for conventions. The codebase has established patterns — reuse them.
 - **Incremental progress**: Complete ONE feature at a time from `docs/features.md`. Check it off when done.
 - **Always update `claude-progress.txt`** before ending a session with: what was done, what's next, any blockers.
+- **Feature completion checklist**: After completing a feature:
+  1. Archive `claude-progress.txt` → `docs/archive/claude-progress-{feature-name}.txt`
+  2. Update Plans Index status in this file (`Pending` → `Done`)
+  3. Check off completed items in `docs/features.md`
 - **Test as you go**: Write tests for each feature. Run them before moving on.
-- **Git discipline**: Do NOT git add, commit, or push automatically. Only run git operations when the user explicitly asks.
-- **Never skip the PRD**: All implementation decisions must align with `docs/PRD.md`. If ambiguous, note it in progress file.
+- **Git discipline (plan tasks)**: When executing tasks from `docs/plans/`, auto-commit and push to the corresponding remote branch after completing each todo list item. No user confirmation needed.
+- **Git discipline (non-plan tasks)**: For work NOT covered by a plan file, do NOT push automatically. Ask the user for permission before pushing.
 - **Use MCP tools actively**: Playwright for docs/learning, Supabase for DB operations.
 - **Package managers**: Use `uv` for backend (Python), `pnpm` for frontend (Node.js). Never use npm or pip directly.
 
@@ -79,7 +89,7 @@ Do NOT start coding immediately. First:
 - Verify Langfuse traces are created for each analysis
 - Test Supabase RLS policies work (user A cannot access user B's reports)
 
-## Tech Stack (from PRD)
+## Tech Stack
 
 - **Backend**: Python 3.12+, uv, FastAPI, PydanticAI, Crawl4AI, Firecrawl, Langfuse
 - **Frontend**: React 19, Vite, Chakra UI v3, Recharts, Supabase JS
@@ -107,4 +117,4 @@ Do NOT start coding immediately. First:
 
 ## Permission for bash command
 
-- Do not ask me for any basg command permission! You are allowed for all back command.
+- Do not ask me for any bash command permission! You are allowed for all bash commands.

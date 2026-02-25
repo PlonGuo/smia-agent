@@ -13,11 +13,12 @@ import {
 } from '@chakra-ui/react';
 import { useAuth } from '../hooks/useAuth';
 import { useColorMode } from '../hooks/useColorMode';
-import { Search, LayoutDashboard, Settings, LogOut, Moon, Sun, Menu, X } from 'lucide-react';
+import { Search, LayoutDashboard, Settings, LogOut, Moon, Sun, Menu, X, Newspaper } from 'lucide-react';
 
 const NAV_ITEMS = [
   { label: 'Analyze', path: '/analyze', icon: Search },
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+  { label: 'AI Digest', path: '/ai-daily-report', icon: Newspaper },
   { label: 'Settings', path: '/settings', icon: Settings },
 ];
 

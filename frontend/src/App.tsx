@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Spinner,
@@ -24,6 +24,11 @@ const Analyze = lazy(() => import('./pages/Analyze'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const ReportDetail = lazy(() => import('./pages/ReportDetail'));
 const Settings = lazy(() => import('./pages/Settings'));
+const AiDailyReport = lazy(() => import('./pages/AiDailyReport'));
+const AiDailyReportHistory = lazy(() => import('./pages/AiDailyReportHistory'));
+const AiDailyReportDetail = lazy(() => import('./pages/AiDailyReportDetail'));
+const AiDailyReportShared = lazy(() => import('./pages/AiDailyReportShared'));
+const Admin = lazy(() => import('./pages/Admin'));
 
 function PageLoader() {
   return (
@@ -38,9 +43,13 @@ function PageLoader() {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) return <PageLoader />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    const redirect = location.pathname + location.search;
+    return <Navigate to={`/login?redirect=${encodeURIComponent(redirect)}`} replace />;
+  }
   return <>{children}</>;
 }
 
@@ -93,12 +102,60 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/ai-daily-report"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AiDailyReport />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-daily-report/history"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AiDailyReportHistory />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-daily-report/history/:id"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AiDailyReportDetail />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-daily-report/shared/:token"
+              element={
+                <Layout>
+                  <AiDailyReportShared />
+                </Layout>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Admin />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </Suspense>
       </ErrorBoundary>
       <Toaster toaster={toaster}>
         {(toast) => (
-          <ToastRoot>
+          <ToastRoot minW="320px" maxW="420px">
             <ToastIndicator />
             <ToastTitle>{toast.title}</ToastTitle>
             <ToastDescription>{toast.description}</ToastDescription>

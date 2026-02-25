@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -11,6 +11,7 @@ import {
 } from '@chakra-ui/react';
 import { useAuth } from '../hooks/useAuth';
 import { useColorMode } from '../hooks/useColorMode';
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { getBindCode } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { toaster } from '../lib/toaster';
@@ -64,26 +65,19 @@ export default function Settings() {
     fetchBinding();
   }, [user]);
 
-  // Poll for binding completion while in pending state
-  useEffect(() => {
-    if (!user || bindingStatus !== 'pending') return;
-
-    const interval = setInterval(async () => {
-      const { data } = await supabase
-        .from('user_bindings')
-        .select('telegram_user_id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (data?.telegram_user_id) {
+  // Realtime subscription for binding completion (replaces polling)
+  useRealtimeSubscription(
+    'user_bindings',
+    'UPDATE',
+    useCallback((payload: { new: Record<string, unknown> }) => {
+      if (payload.new?.telegram_user_id) {
         setBindingStatus('linked');
         setBindCode(null);
         toaster.success({ title: 'Telegram linked successfully!' });
       }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [user, bindingStatus]);
+    }, []),
+    user ? `user_id=eq.${user.id}` : undefined,
+  );
 
   const handleGenerateCode = async () => {
     setBindLoading(true);

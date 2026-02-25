@@ -41,5 +41,8 @@ build/
 *.log
 YARS.log
 
+# Error notes
+docs/errors/
+
 # Claude project setting
 .claude/

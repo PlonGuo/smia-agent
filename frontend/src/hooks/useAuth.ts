@@ -56,9 +56,12 @@ export function useAuth(): AuthState {
   );
 
   const signInWithGoogle = useCallback(async () => {
+    // Preserve redirect param from login page URL (e.g., /login?redirect=/ai-daily-report)
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get('redirect') || '/dashboard';
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: `${window.location.origin}${redirect}` },
     });
     if (error) throw error;
   }, []);
