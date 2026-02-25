@@ -111,6 +111,11 @@ class TestClaimOrGetDigest:
         rpc_result = _make_rpc_in_progress()
         mock_client = MagicMock()
         mock_client.rpc.return_value.execute.return_value = rpc_result
+        # Mock the staleness check query — return a recent updated_at so it's NOT stale
+        recent_time = datetime.now(timezone.utc).isoformat()
+        mock_client.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+            data={"updated_at": recent_time}
+        )
 
         with patch("services.digest_service.get_supabase_client", return_value=mock_client):
             from services.digest_service import claim_or_get_digest
