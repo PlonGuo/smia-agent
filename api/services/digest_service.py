@@ -100,9 +100,12 @@ async def run_collectors_phase(digest_id: str) -> None:
         await _trigger_analysis_phase(digest_id)
 
     except Exception as exc:
-        logger.error("Collectors phase failed: %s", exc)
+        tb = traceback.format_exc()
+        logger.error("Collectors phase failed: %s\n%s", exc, tb)
+        error_msg = f"[PHASE1 ERROR] {type(exc).__name__}: {exc}\n\n{tb[-500:]}"
         client.table("daily_digests").update({
             "status": "failed",
+            "executive_summary": error_msg,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("id", digest_id).execute()
 
@@ -290,8 +293,11 @@ async def run_analysis_phase(digest_id: str) -> None:
         logger.error("Analysis phase failed: %s\n%s", exc, tb)
         print(f"[DIGEST] Phase 2 FAILED: {type(exc).__name__}: {exc}")
         print(f"[DIGEST] Traceback:\n{tb}")
+        # Store error details in executive_summary so we can read it from DB
+        error_msg = f"[ERROR] {type(exc).__name__}: {exc}\n\n{tb[-500:]}"
         client.table("daily_digests").update({
             "status": "failed",
+            "executive_summary": error_msg,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("id", digest_id).execute()
 
