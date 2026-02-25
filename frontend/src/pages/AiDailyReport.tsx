@@ -11,6 +11,7 @@ import {
 import { useDigestPermissions } from '../hooks/useDigestPermissions';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { getTodayDigest } from '../lib/api';
+import type { DailyDigest } from '../lib/api';
 import { toaster } from '../lib/toaster';
 import AccessRequestModal from '../components/digest/AccessRequestModal';
 import DigestHeader from '../components/digest/DigestHeader';
@@ -22,7 +23,7 @@ import { Clock, History, XCircle } from 'lucide-react';
 
 export default function AiDailyReport() {
   const { accessStatus, hasAccess } = useDigestPermissions();
-  const [digest, setDigest] = useState<any>(null);
+  const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [digestStatus, setDigestStatus] = useState<string>('loading');
   const [digestId, setDigestId] = useState<string | null>(null);
 
@@ -52,12 +53,12 @@ export default function AiDailyReport() {
   useRealtimeSubscription(
     'daily_digests',
     'UPDATE',
-    useCallback((payload: any) => {
+    useCallback((payload: { new: Record<string, unknown> }) => {
       const newRow = payload.new;
       if (newRow && digestId && newRow.id === digestId) {
-        setDigestStatus(newRow.status);
+        setDigestStatus(newRow.status as string);
         if (newRow.status === 'completed') {
-          setDigest(newRow);
+          setDigest(newRow as unknown as DailyDigest);
         }
       }
     }, [digestId]),
@@ -68,7 +69,7 @@ export default function AiDailyReport() {
   useRealtimeSubscription(
     'digest_access_requests',
     'UPDATE',
-    useCallback((payload: any) => {
+    useCallback((payload: { new: Record<string, unknown> }) => {
       if (payload.new?.status === 'approved') {
         window.location.reload();
       }

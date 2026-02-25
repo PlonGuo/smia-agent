@@ -6,13 +6,14 @@ import {
   Text,
 } from '@chakra-ui/react';
 import { getSharedDigest } from '../lib/api';
+import type { DailyDigest } from '../lib/api';
 import DigestHeader from '../components/digest/DigestHeader';
 import DigestSkeleton from '../components/digest/DigestSkeleton';
 import KanbanBoard from '../components/digest/KanbanBoard';
 
 export default function AiDailyReportShared() {
   const { token } = useParams<{ token: string }>();
-  const [digest, setDigest] = useState<any>(null);
+  const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 

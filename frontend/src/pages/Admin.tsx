@@ -11,6 +11,7 @@ import {
 import { useDigestPermissions } from '../hooks/useDigestPermissions';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 import { getAccessRequests, getAdmins } from '../lib/api';
+import type { AccessRequest, Admin as AdminType } from '../lib/api';
 import { toaster } from '../lib/toaster';
 import RequestsTable from '../components/admin/RequestsTable';
 import AdminsManager from '../components/admin/AdminsManager';
@@ -23,8 +24,8 @@ export default function Admin() {
   const { user } = useAuth();
   const { isAdmin, accessStatus } = useDigestPermissions();
   const [tab, setTab] = useState<Tab>('requests');
-  const [requests, setRequests] = useState<any[]>([]);
-  const [admins, setAdmins] = useState<any[]>([]);
+  const [requests, setRequests] = useState<AccessRequest[]>([]);
+  const [admins, setAdmins] = useState<AdminType[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {

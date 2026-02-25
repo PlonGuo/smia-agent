@@ -212,8 +212,8 @@ export async function removeAdmin(id: string): Promise<void> {
   return apiClient(`/admin/admins/${id}`, { method: 'DELETE' });
 }
 
-// Types for digest API responses (lightweight, used by API layer only)
-interface DailyDigest {
+// Types for digest API responses (exported for use in pages)
+export interface DailyDigest {
   id: string;
   digest_date: string;
   status: string;
@@ -230,7 +230,7 @@ interface DailyDigest {
   created_at?: string;
 }
 
-interface DigestItemData {
+export interface DigestItemData {
   title: string;
   url: string;
   source: string;
@@ -259,7 +259,7 @@ interface Feedback {
   vote: number;
 }
 
-interface AccessRequest {
+export interface AccessRequest {
   id: string;
   user_id: string;
   email: string;
@@ -271,7 +271,7 @@ interface AccessRequest {
   created_at: string;
 }
 
-interface Admin {
+export interface Admin {
   id: string;
   user_id: string;
   email: string;

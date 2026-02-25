@@ -69,7 +69,7 @@ export default function Settings() {
   useRealtimeSubscription(
     'user_bindings',
     'UPDATE',
-    useCallback((payload: any) => {
+    useCallback((payload: { new: Record<string, unknown> }) => {
       if (payload.new?.telegram_user_id) {
         setBindingStatus('linked');
         setBindCode(null);

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { Component, useState } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import {
   Badge,
   Box,
@@ -151,14 +152,28 @@ export default function KanbanBoard({ items }: Props) {
 }
 
 /** Minimal error boundary wrapper per card (S8). */
-function ErrorBoundaryCard({ children }: { children: React.ReactNode }) {
-  try {
-    return <>{children}</>;
-  } catch {
-    return (
-      <Box p={2} borderWidth="1px" borderColor="red.300" borderRadius="md" mb={2}>
-        <Text fontSize="xs" color="red.500">Failed to render card</Text>
-      </Box>
-    );
+class ErrorBoundaryCard extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('KanbanCard render error:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Box p={2} borderWidth="1px" borderColor="red.300" borderRadius="md" mb={2}>
+          <Text fontSize="xs" color="red.500">Failed to render card</Text>
+        </Box>
+      );
+    }
+    return this.props.children;
   }
 }

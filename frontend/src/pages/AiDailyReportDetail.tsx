@@ -9,6 +9,7 @@ import {
 } from '@chakra-ui/react';
 import { useDigestPermissions } from '../hooks/useDigestPermissions';
 import { getDigest } from '../lib/api';
+import type { DailyDigest } from '../lib/api';
 import DigestHeader from '../components/digest/DigestHeader';
 import DigestSkeleton from '../components/digest/DigestSkeleton';
 import KanbanBoard from '../components/digest/KanbanBoard';
@@ -19,7 +20,7 @@ import { ArrowLeft } from 'lucide-react';
 export default function AiDailyReportDetail() {
   const { id } = useParams<{ id: string }>();
   const { hasAccess, accessStatus } = useDigestPermissions();
-  const [digest, setDigest] = useState<any>(null);
+  const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

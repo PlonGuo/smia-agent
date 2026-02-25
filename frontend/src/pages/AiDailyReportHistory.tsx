@@ -14,6 +14,7 @@ import {
 } from '@chakra-ui/react';
 import { useDigestPermissions } from '../hooks/useDigestPermissions';
 import { listDigests } from '../lib/api';
+import type { DailyDigest } from '../lib/api';
 import { toaster } from '../lib/toaster';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -21,7 +22,7 @@ const PER_PAGE = 20;
 
 export default function AiDailyReportHistory() {
   const { hasAccess, accessStatus } = useDigestPermissions();
-  const [digests, setDigests] = useState<any[]>([]);
+  const [digests, setDigests] = useState<DailyDigest[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -100,7 +101,7 @@ export default function AiDailyReportHistory() {
               });
               const cats = d.category_counts || {};
               const topCats = Object.entries(cats)
-                .sort(([, a]: any, [, b]: any) => b - a)
+                .sort(([, a], [, b]) => (b as number) - (a as number))
                 .slice(0, 3);
 
               return (
@@ -123,7 +124,7 @@ export default function AiDailyReportHistory() {
                           )}
                         </Box>
                         <Flex gap={1}>
-                          {topCats.map(([cat, count]: any) => (
+                          {topCats.map(([cat, count]) => (
                             <Badge key={cat} variant="outline" size="sm">
                               {cat}: {count}
                             </Badge>
