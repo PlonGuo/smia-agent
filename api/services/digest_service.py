@@ -208,7 +208,7 @@ async def run_analysis_phase(digest_id: str) -> None:
 
     try:
         print(f"[DIGEST] Phase 2 starting for digest {digest_id}")
-        trace_metadata(tags=["digest", "analysis"])
+        trace_metadata(user_id="system:digest", tags=["digest", "analysis"])
 
         # Pre-flight: check OpenAI API key
         openai_key = settings.effective_openai_key
