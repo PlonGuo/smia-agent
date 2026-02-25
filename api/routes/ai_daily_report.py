@@ -253,3 +253,26 @@ async def internal_analyze(
 
     background_tasks.add_task(run_analysis_phase, digest_id)
     return {"status": "accepted", "digest_id": digest_id}
+
+
+@router.post("/internal/collect")
+async def internal_collect(
+    request: Request,
+    body: dict,
+    background_tasks: BackgroundTasks,
+):
+    """Internal endpoint: trigger Phase 1 (collectors) in a fresh function invocation.
+
+    Used by Telegram /digest command to avoid running collectors inline
+    in the webhook handler (which would hit the 60s Vercel timeout).
+    """
+    secret = request.headers.get("x-internal-secret", "")
+    if secret != settings.internal_secret:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    digest_id = body.get("digest_id")
+    if not digest_id:
+        raise HTTPException(status_code=400, detail="Missing digest_id")
+
+    background_tasks.add_task(run_collectors_phase, digest_id)
+    return {"status": "accepted", "digest_id": digest_id}
