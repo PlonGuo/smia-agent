@@ -431,17 +431,10 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
             )
             print("[TG /digest] Sent completed digest to user")
 
-        elif status in ("collecting", "analyzing"):
-            await send_message(
-                chat_id,
-                "\u23f3 <b>Digest is being generated...</b>\n\n"
-                "The AI Daily Digest is currently being prepared. "
-                "You'll receive a notification when it's ready.\n\n"
-                f'<a href="{WEB_APP_URL}/ai-daily-report">View progress on web</a>',
-            )
-            print(f"[TG /digest] Digest in progress ({status}), told user to wait")
-
         elif result.get("claimed"):
+            # MUST check "claimed" BEFORE status — staleness recovery returns
+            # claimed=True WITH status="collecting", and we need to run the
+            # pipeline, not just show "being generated...".
             # We just claimed the lock — run collectors inline.
             # With Vercel maxDuration=60s and collectors taking ~20s,
             # this fits comfortably. Phase 2 is triggered via HTTP by
@@ -462,6 +455,16 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
                 tb = traceback.format_exc()
                 print(f"[TG /digest] ERROR running collectors: {exc}\n{tb}")
                 logger.error("Telegram digest collectors failed: %s", exc)
+
+        elif status in ("collecting", "analyzing"):
+            await send_message(
+                chat_id,
+                "\u23f3 <b>Digest is being generated...</b>\n\n"
+                "The AI Daily Digest is currently being prepared. "
+                "You'll receive a notification when it's ready.\n\n"
+                f'<a href="{WEB_APP_URL}/ai-daily-report">View progress on web</a>',
+            )
+            print(f"[TG /digest] Digest in progress ({status}), told user to wait")
 
         else:
             # Failed or unknown — suggest web
