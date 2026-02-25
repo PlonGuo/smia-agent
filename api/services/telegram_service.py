@@ -21,7 +21,9 @@ from core.config import settings
 from services.database import (
     complete_binding,
     get_binding_by_telegram_id,
+    get_digest_access_status,
     get_recent_reports_by_user,
+    get_supabase_client,
     lookup_bind_code,
     save_report_service,
 )
@@ -173,6 +175,7 @@ def format_welcome() -> str:
         "\n"
         "<b>Commands:</b>\n"
         "/analyze &lt;topic&gt; — Analyze a topic\n"
+        "/digest — Today's AI daily digest\n"
         "/history — View your last 5 analyses\n"
         "/bind &lt;code&gt; — Link your web account\n"
         "/help — Show this help message\n"
@@ -195,6 +198,10 @@ def format_help() -> str:
         "  Examples:\n"
         "  <code>/analyze Plaud Note reviews</code>\n"
         "  <code>/analyze Plaud Note month</code>\n"
+        "\n"
+        "/digest — View today's AI daily intelligence digest\n"
+        "  Shows summary, highlights, and a link to the full report\n"
+        "  Triggers generation if no digest exists yet today\n"
         "\n"
         "/history — Show your last 5 analysis reports\n"
         "\n"
@@ -350,6 +357,120 @@ async def handle_analyze(
         )
 
 
+async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
+    """Handle the /digest command — show today's AI digest or trigger generation."""
+    # 1. Check binding
+    binding = get_binding_by_telegram_id(telegram_user_id)
+    if not binding:
+        await send_message(
+            chat_id,
+            format_error(
+                "Please bind your Telegram account first.\n"
+                f'Visit <a href="{WEB_APP_URL}/settings">Settings</a> '
+                "to generate a bind code, then use <code>/bind CODE</code> here."
+            ),
+        )
+        return
+
+    user_id = binding["user_id"]
+    access_token = binding.get("access_token", "")
+
+    # 2. Check digest permission
+    access = get_digest_access_status(user_id, access_token)
+    if access not in ("admin", "approved"):
+        digest_url = f"{WEB_APP_URL}/login?redirect=%2Fai-daily-report"
+        await send_message(
+            chat_id,
+            "\U0001f6ab <b>No digest access</b>\n\n"
+            "You don't have access to the AI Daily Digest yet.\n"
+            f'<a href="{digest_url}">Request access on the web</a>',
+        )
+        return
+
+    # 3. Check today's digest status
+    try:
+        from services.digest_service import claim_or_get_digest
+
+        result = claim_or_get_digest(user_id, access_token)
+        status = result.get("status")
+
+        if status == "completed":
+            digest = result.get("digest", {})
+            summary = digest.get("executive_summary", "No summary available.")
+            highlights = digest.get("top_highlights", [])
+            total = digest.get("total_items", 0)
+            categories = digest.get("category_counts", {})
+
+            # Format highlights
+            hl_text = ""
+            if highlights:
+                hl_lines = [f"  \u2022 {h}" for h in highlights[:5]]
+                hl_text = "\n\U0001f31f <b>Top Highlights:</b>\n" + "\n".join(hl_lines)
+
+            # Format categories
+            cat_text = ""
+            if categories:
+                cat_parts = [f"{k}: {v}" for k, v in sorted(categories.items(), key=lambda x: -x[1])]
+                cat_text = f"\n\U0001f3f7 {', '.join(cat_parts)}"
+
+            await send_message(
+                chat_id,
+                f"\U0001f4f0 <b>AI Daily Digest</b>\n\n"
+                f"\U0001f4ca {total} items analyzed{cat_text}\n\n"
+                f"<b>Summary:</b>\n{_escape_html(summary)}"
+                f"{hl_text}\n\n"
+                f'<a href="{WEB_APP_URL}/ai-daily-report">View full digest</a>',
+            )
+
+        elif status in ("collecting", "analyzing"):
+            await send_message(
+                chat_id,
+                "\u23f3 <b>Digest is being generated...</b>\n\n"
+                "The AI Daily Digest is currently being prepared. "
+                "You'll receive a notification when it's ready.\n\n"
+                f'<a href="{WEB_APP_URL}/ai-daily-report">View progress on web</a>',
+            )
+
+        elif result.get("claimed"):
+            # We just triggered generation
+            from fastapi import BackgroundTasks
+            from services.digest_service import run_collectors_phase
+
+            # Can't use BackgroundTasks here (not in a request context),
+            # so run inline in this background task
+            await send_message(
+                chat_id,
+                "\U0001f680 <b>Generating today's digest...</b>\n\n"
+                "This usually takes 30-60 seconds. "
+                "You'll receive a notification when it's ready.\n\n"
+                f'<a href="{WEB_APP_URL}/ai-daily-report">View progress on web</a>',
+            )
+            try:
+                await run_collectors_phase(result["digest_id"])
+            except Exception as exc:
+                logger.error("Telegram digest generation failed: %s", exc)
+
+        else:
+            # Failed or unknown — suggest web
+            await send_message(
+                chat_id,
+                "\u26a0\ufe0f <b>Digest unavailable</b>\n\n"
+                "Today's digest encountered an issue. "
+                "Please try again or check the web app.\n\n"
+                f'<a href="{WEB_APP_URL}/ai-daily-report">Open AI Digest</a>',
+            )
+
+    except Exception as exc:
+        logger.error("Telegram /digest failed: %s", exc)
+        await send_message(
+            chat_id,
+            format_error(
+                "Failed to load digest. Please try again later.\n"
+                f'<a href="{WEB_APP_URL}/ai-daily-report">Open on web</a>'
+            ),
+        )
+
+
 async def handle_bind(
     chat_id: int,
     telegram_user_id: int,
@@ -474,6 +595,8 @@ async def handle_update(update: dict) -> None:
     elif command == "/bind":
         code = text[len(text.split()[0]):].strip()
         await handle_bind(chat_id, telegram_user_id, code)
+    elif command == "/digest":
+        await handle_digest(chat_id, telegram_user_id)
     elif command == "/history":
         await handle_history(chat_id, telegram_user_id)
     elif text.startswith("/"):
