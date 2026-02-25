@@ -432,12 +432,8 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
             )
 
         elif result.get("claimed"):
-            # We just triggered generation
-            from fastapi import BackgroundTasks
-            from services.digest_service import run_collectors_phase
-
-            # Can't use BackgroundTasks here (not in a request context),
-            # so run inline in this background task
+            # We just triggered generation — fire HTTP to a separate function
+            # so collectors get their own 60s Vercel budget (not the webhook's).
             await send_message(
                 chat_id,
                 "\U0001f680 <b>Generating today's digest...</b>\n\n"
@@ -446,9 +442,20 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
                 f'<a href="{WEB_APP_URL}/ai-daily-report">View progress on web</a>',
             )
             try:
-                await run_collectors_phase(result["digest_id"])
+                app_url = settings.effective_app_url
+                if app_url:
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        await client.post(
+                            f"{app_url}/api/ai-daily-report/internal/collect",
+                            json={"digest_id": result["digest_id"]},
+                            headers={"x-internal-secret": settings.internal_secret},
+                        )
+                else:
+                    # Fallback: run inline (may timeout on Vercel)
+                    from services.digest_service import run_collectors_phase
+                    await run_collectors_phase(result["digest_id"])
             except Exception as exc:
-                logger.error("Telegram digest generation failed: %s", exc)
+                logger.error("Telegram digest trigger failed: %s", exc)
 
         else:
             # Failed or unknown — suggest web
