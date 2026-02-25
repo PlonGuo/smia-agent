@@ -20,7 +20,7 @@ export default function ShareButton({ digestId }: Props) {
       await navigator.clipboard.writeText(data.url);
       toaster.success({
         title: 'Share link copied!',
-        description: 'Link expires in 7 days.',
+        description: 'Link expires in 24 hours.',
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create share link';

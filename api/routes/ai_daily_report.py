@@ -211,7 +211,7 @@ async def create_share_token(
         raise HTTPException(status_code=403, detail=f"Access status: {access}")
 
     token = uuid.uuid4().hex[:16]
-    expires_at = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
 
     client = get_supabase_client()
     client.table("digest_share_tokens").insert({

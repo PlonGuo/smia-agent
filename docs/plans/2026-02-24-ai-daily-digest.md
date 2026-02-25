@@ -288,7 +288,7 @@ id              UUID PK DEFAULT gen_random_uuid()
 digest_id       UUID REFERENCES daily_digests(id) ON DELETE CASCADE
 token           VARCHAR(64) UNIQUE — random share token
 created_by      UUID REFERENCES auth.users(id)
-expires_at      TIMESTAMPTZ — 7 days from creation
+expires_at      TIMESTAMPTZ — 24 hours from creation
 created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 ```
 RLS: service role can ALL.
@@ -450,7 +450,7 @@ During generation (30-60s), show skeleton kanban with shimmer animation + progre
 
 ### Shared Digest View
 - Public page at `/ai-daily-report/shared/:token` (no auth required)
-- Token expires after 7 days
+- Token expires after 24 hours
 - Read-only view of the digest
 
 ---
