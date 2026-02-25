@@ -359,9 +359,14 @@ async def handle_analyze(
 
 async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
     """Handle the /digest command — show today's AI digest or trigger generation."""
+    import traceback
+
+    print(f"[TG /digest] Start: chat_id={chat_id}, tg_user={telegram_user_id}")
+
     # 1. Check binding
     binding = get_binding_by_telegram_id(telegram_user_id)
     if not binding:
+        print(f"[TG /digest] No binding for tg_user={telegram_user_id}")
         await send_message(
             chat_id,
             format_error(
@@ -374,9 +379,11 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
 
     user_id = binding["user_id"]
     access_token = binding.get("access_token", "")
+    print(f"[TG /digest] Binding found: user_id={user_id}")
 
     # 2. Check digest permission
     access = get_digest_access_status(user_id, access_token)
+    print(f"[TG /digest] Access status: {access}")
     if access not in ("admin", "approved"):
         digest_url = f"{WEB_APP_URL}/login?redirect=%2Fai-daily-report"
         await send_message(
@@ -393,6 +400,7 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
 
         result = claim_or_get_digest(user_id, access_token)
         status = result.get("status")
+        print(f"[TG /digest] claim_or_get_digest result: status={status}, claimed={result.get('claimed')}, digest_id={result.get('digest_id')}")
 
         if status == "completed":
             digest = result.get("digest", {})
@@ -421,6 +429,7 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
                 f"{hl_text}\n\n"
                 f'<a href="{WEB_APP_URL}/ai-daily-report">View full digest</a>',
             )
+            print("[TG /digest] Sent completed digest to user")
 
         elif status in ("collecting", "analyzing"):
             await send_message(
@@ -430,6 +439,7 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
                 "You'll receive a notification when it's ready.\n\n"
                 f'<a href="{WEB_APP_URL}/ai-daily-report">View progress on web</a>',
             )
+            print(f"[TG /digest] Digest in progress ({status}), told user to wait")
 
         elif result.get("claimed"):
             # We just triggered generation — fire HTTP to a separate function
@@ -443,22 +453,29 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
             )
             try:
                 app_url = settings.effective_app_url
+                print(f"[TG /digest] Claimed! Triggering collectors via HTTP to {app_url}")
                 if app_url:
-                    async with httpx.AsyncClient(timeout=10) as client:
-                        await client.post(
-                            f"{app_url}/api/ai-daily-report/internal/collect",
+                    collect_url = f"{app_url}/api/ai-daily-report/internal/collect"
+                    print(f"[TG /digest] POST {collect_url}")
+                    async with httpx.AsyncClient(timeout=15) as client:
+                        resp = await client.post(
+                            collect_url,
                             json={"digest_id": result["digest_id"]},
                             headers={"x-internal-secret": settings.internal_secret},
                         )
+                        print(f"[TG /digest] Collect trigger response: {resp.status_code} {resp.text[:200]}")
                 else:
-                    # Fallback: run inline (may timeout on Vercel)
+                    print("[TG /digest] WARNING: No app_url — running collectors inline (may timeout)")
                     from services.digest_service import run_collectors_phase
                     await run_collectors_phase(result["digest_id"])
             except Exception as exc:
+                tb = traceback.format_exc()
+                print(f"[TG /digest] ERROR triggering collectors: {exc}\n{tb}")
                 logger.error("Telegram digest trigger failed: %s", exc)
 
         else:
             # Failed or unknown — suggest web
+            print(f"[TG /digest] Unknown status: {status}")
             await send_message(
                 chat_id,
                 "\u26a0\ufe0f <b>Digest unavailable</b>\n\n"
@@ -468,6 +485,8 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
             )
 
     except Exception as exc:
+        tb = traceback.format_exc()
+        print(f"[TG /digest] EXCEPTION: {exc}\n{tb}")
         logger.error("Telegram /digest failed: %s", exc)
         await send_message(
             chat_id,

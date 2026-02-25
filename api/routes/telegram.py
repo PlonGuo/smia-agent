@@ -37,10 +37,8 @@ async def telegram_webhook(
         logger.warning("Invalid JSON in Telegram webhook request")
         return JSONResponse({"ok": False, "error": "invalid json"}, status_code=400)
 
-    logger.info(
-        "Telegram update received: update_id=%s",
-        update.get("update_id", "?"),
-    )
+    text = update.get("message", {}).get("text", "")
+    print(f"[TG WEBHOOK] update_id={update.get('update_id')}, text={text[:50]}")
 
     # Process in background so we return 200 quickly
     background_tasks.add_task(_process_update, update)
@@ -51,6 +49,10 @@ async def telegram_webhook(
 async def _process_update(update: dict) -> None:
     """Wrapper for handle_update with error logging."""
     try:
+        print("[TG WEBHOOK] BackgroundTask started")
         await handle_update(update)
-    except Exception:
+        print("[TG WEBHOOK] BackgroundTask completed")
+    except Exception as exc:
+        import traceback
+        print(f"[TG WEBHOOK] BackgroundTask FAILED: {exc}\n{traceback.format_exc()}")
         logger.exception("Unhandled error processing Telegram update")
