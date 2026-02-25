@@ -1,7 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
+  Button,
+  Flex,
   Heading,
+  Link,
   Text,
 } from '@chakra-ui/react';
 import { useDigestPermissions } from '../hooks/useDigestPermissions';
@@ -12,7 +16,9 @@ import AccessRequestModal from '../components/digest/AccessRequestModal';
 import DigestHeader from '../components/digest/DigestHeader';
 import DigestSkeleton from '../components/digest/DigestSkeleton';
 import KanbanBoard from '../components/digest/KanbanBoard';
-import { Clock, XCircle } from 'lucide-react';
+import ShareButton from '../components/digest/ShareButton';
+import ExportButton from '../components/digest/ExportButton';
+import { Clock, History, XCircle } from 'lucide-react';
 
 export default function AiDailyReport() {
   const { accessStatus, hasAccess } = useDigestPermissions();
@@ -119,7 +125,21 @@ export default function AiDailyReport() {
   // State: completed digest
   return (
     <Box>
-      <Heading size="xl" mb={6}>AI Daily Report</Heading>
+      <Flex justifyContent="space-between" alignItems="center" mb={6} flexWrap="wrap" gap={2}>
+        <Heading size="xl">AI Daily Report</Heading>
+        <Flex gap={2}>
+          <ShareButton digestId={digest.id} />
+          <ExportButton digest={digest} />
+          <Link asChild>
+            <RouterLink to="/ai-daily-report/history">
+              <Button className="btn-silicone" variant="ghost" size="sm">
+                <History size={14} />
+                History
+              </Button>
+            </RouterLink>
+          </Link>
+        </Flex>
+      </Flex>
       <DigestHeader digest={digest} />
       {digest.top_highlights && digest.top_highlights.length > 0 && (
         <Box className="glass-panel" p={4} mb={6}>

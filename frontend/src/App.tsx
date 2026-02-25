@@ -25,6 +25,8 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const ReportDetail = lazy(() => import('./pages/ReportDetail'));
 const Settings = lazy(() => import('./pages/Settings'));
 const AiDailyReport = lazy(() => import('./pages/AiDailyReport'));
+const AiDailyReportHistory = lazy(() => import('./pages/AiDailyReportHistory'));
+const AiDailyReportDetail = lazy(() => import('./pages/AiDailyReportDetail'));
 const AiDailyReportShared = lazy(() => import('./pages/AiDailyReportShared'));
 const Admin = lazy(() => import('./pages/Admin'));
 
@@ -102,6 +104,26 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <AiDailyReport />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-daily-report/history"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AiDailyReportHistory />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-daily-report/history/:id"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AiDailyReportDetail />
                   </Layout>
                 </ProtectedRoute>
               }
