@@ -55,7 +55,7 @@ class Settings(BaseSettings):
 
     # Internal (two-phase pipeline trigger)
     internal_secret: str = "smia-internal-digest-trigger-key"
-    app_url: str = ""  # Set in Vercel env, e.g. https://smia-agent.vercel.app
+    app_url: str = ""  # Set in Vercel env, or auto-derived from VERCEL_URL
 
     # Environment (auto-detected)
     environment: str = ""
@@ -64,6 +64,17 @@ class Settings(BaseSettings):
     def effective_openai_key(self) -> str:
         """Return whichever OpenAI key is set, stripped of whitespace."""
         return (self.openai_api_key or self.open_ai_api_key).strip()
+
+    @property
+    def effective_app_url(self) -> str:
+        """Return app_url, falling back to VERCEL_URL if not explicitly set."""
+        if self.app_url:
+            return self.app_url.rstrip("/")
+        # Vercel auto-sets VERCEL_URL for each deployment (no protocol)
+        vercel_url = os.environ.get("VERCEL_URL", "").strip()
+        if vercel_url:
+            return f"https://{vercel_url}"
+        return ""
 
     model_config = {"env_file": str(_env_file), "extra": "ignore"}
 

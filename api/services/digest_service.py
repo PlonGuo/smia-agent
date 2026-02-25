@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import time
+import traceback
 from datetime import date, datetime, timedelta, timezone
 
 import httpx
@@ -163,15 +164,17 @@ async def _run_collectors(client, today: str) -> tuple[list[RawCollectorItem], d
 
 async def _trigger_analysis_phase(digest_id: str) -> None:
     """Trigger Phase 2 via internal HTTP call to a new serverless function."""
-    app_url = settings.app_url.rstrip("/") if settings.app_url else ""
+    app_url = settings.effective_app_url
 
     if not app_url:
         # No app_url configured — fall back to running Phase 2 inline
-        logger.warning("No APP_URL configured — running Phase 2 inline")
+        logger.warning("No APP_URL or VERCEL_URL configured — running Phase 2 inline")
+        print("[DIGEST] No APP_URL or VERCEL_URL — running Phase 2 inline")
         await run_analysis_phase(digest_id)
         return
 
     try:
+        print(f"[DIGEST] Triggering Phase 2 via {app_url}/api/ai-daily-report/internal/analyze")
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(
                 f"{app_url}/api/ai-daily-report/internal/analyze",
@@ -180,10 +183,13 @@ async def _trigger_analysis_phase(digest_id: str) -> None:
             )
             if resp.status_code != 200:
                 logger.error("Phase 2 trigger failed: %s %s", resp.status_code, resp.text)
-                # Fall back to inline
+                print(f"[DIGEST] Phase 2 HTTP trigger failed ({resp.status_code}), running inline")
                 await run_analysis_phase(digest_id)
+            else:
+                print(f"[DIGEST] Phase 2 triggered successfully via HTTP")
     except Exception as exc:
         logger.error("Phase 2 trigger HTTP failed: %s — running inline", exc)
+        print(f"[DIGEST] Phase 2 HTTP error: {exc} — running inline")
         await run_analysis_phase(digest_id)
 
 
@@ -198,7 +204,17 @@ async def run_analysis_phase(digest_id: str) -> None:
     today = date.today().isoformat()
 
     try:
+        print(f"[DIGEST] Phase 2 starting for digest {digest_id}")
         trace_metadata(tags=["digest", "analysis"])
+
+        # Pre-flight: check OpenAI API key
+        openai_key = settings.effective_openai_key
+        if not openai_key:
+            raise RuntimeError(
+                "OPENAI_API_KEY is not configured — cannot run LLM analysis. "
+                "Set OPENAI_API_KEY or OPEN_AI_API_KEY in Vercel env vars."
+            )
+        print(f"[DIGEST] OpenAI key present (len={len(openai_key)}, prefix={openai_key[:8]}...)")
 
         # Read collector cache
         cached = (
@@ -218,7 +234,10 @@ async def run_analysis_phase(digest_id: str) -> None:
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }).eq("id", digest_id).execute()
             logger.error("No cached items found for analysis")
+            print("[DIGEST] Phase 2 failed: no cached items found")
             return
+
+        print(f"[DIGEST] Phase 2: {len(all_items)} items loaded from cache, calling LLM...")
 
         # Run LLM analysis
         from services.digest_agent import analyze_digest, DIGEST_PROMPT_VERSION
@@ -226,6 +245,8 @@ async def run_analysis_phase(digest_id: str) -> None:
         start = time.time()
         digest_output = await analyze_digest(all_items)
         processing_time = int(time.time() - start)
+
+        print(f"[DIGEST] LLM analysis completed in {processing_time}s")
 
         # Get token usage and trace ID
         langfuse_trace_id = None
@@ -262,9 +283,13 @@ async def run_analysis_phase(digest_id: str) -> None:
         flush_langfuse()
         logger.info("Digest completed: %d items analyzed in %ds",
                      len(all_items), processing_time)
+        print(f"[DIGEST] Phase 2 completed successfully: {len(all_items)} items in {processing_time}s")
 
     except Exception as exc:
-        logger.error("Analysis phase failed: %s", exc)
+        tb = traceback.format_exc()
+        logger.error("Analysis phase failed: %s\n%s", exc, tb)
+        print(f"[DIGEST] Phase 2 FAILED: {type(exc).__name__}: {exc}")
+        print(f"[DIGEST] Traceback:\n{tb}")
         client.table("daily_digests").update({
             "status": "failed",
             "updated_at": datetime.now(timezone.utc).isoformat(),
