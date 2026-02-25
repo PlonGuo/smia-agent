@@ -24,6 +24,9 @@ const Analyze = lazy(() => import('./pages/Analyze'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const ReportDetail = lazy(() => import('./pages/ReportDetail'));
 const Settings = lazy(() => import('./pages/Settings'));
+const AiDailyReport = lazy(() => import('./pages/AiDailyReport'));
+const AiDailyReportShared = lazy(() => import('./pages/AiDailyReportShared'));
+const Admin = lazy(() => import('./pages/Admin'));
 
 function PageLoader() {
   return (
@@ -89,6 +92,34 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <Settings />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-daily-report"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AiDailyReport />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-daily-report/shared/:token"
+              element={
+                <Layout>
+                  <AiDailyReportShared />
+                </Layout>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Admin />
                   </Layout>
                 </ProtectedRoute>
               }
