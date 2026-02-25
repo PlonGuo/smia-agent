@@ -444,6 +444,7 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
                 "\U0001f680 <b>Generating today's digest...</b>\n\n"
                 "This usually takes 30-60 seconds. "
                 "You'll receive a notification when it's ready.\n\n"
+                "Please turn on Allow Notifications on your device.\n\n"
                 f'<a href="{WEB_APP_URL}/ai-daily-report">View progress on web</a>',
             )
             try:
@@ -632,7 +633,7 @@ async def handle_update(update: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def notify_digest_ready(total_items: int, categories: dict) -> None:
+async def notify_digest_ready(total_items: int, categories: dict, summary: str = "") -> None:
     """Send digest notification to all authorized users with linked Telegram."""
     client = get_supabase_client()
 
@@ -664,11 +665,17 @@ async def notify_digest_ready(total_items: int, categories: dict) -> None:
     # Format categories
     cat_text = ", ".join(f"{k}: {v}" for k, v in sorted(categories.items(), key=lambda x: -x[1]))
 
+    # Format summary
+    summary_text = ""
+    if summary:
+        summary_text = f"\n<b>Summary:</b>\n{_escape_html(summary)}\n"
+
     message = (
         "\U0001f4f0 <b>AI Daily Digest is ready!</b>\n\n"
         f"\U0001f4ca {total_items} items analyzed\n"
-        f"\U0001f3f7 {cat_text}\n\n"
-        f'<a href="{WEB_APP_URL}/ai-daily-report">View digest</a>'
+        f"\U0001f3f7 {cat_text}\n"
+        f"{summary_text}\n"
+        f'<a href="{WEB_APP_URL}/ai-daily-report">View full digest</a>'
     )
 
     for binding in bindings.data:

@@ -358,4 +358,5 @@ async def _notify_telegram(digest_output, total_items: int) -> None:
     from services.telegram_service import notify_digest_ready
 
     categories = digest_output.category_counts
-    await notify_digest_ready(total_items, categories)
+    summary = digest_output.executive_summary
+    await notify_digest_ready(total_items, categories, summary)
