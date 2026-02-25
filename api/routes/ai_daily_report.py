@@ -236,11 +236,12 @@ async def create_share_token(
 async def internal_analyze(
     request: Request,
     body: dict,
+    background_tasks: BackgroundTasks,
 ):
     """Internal endpoint: triggered by Phase 1 to start Phase 2 (LLM analysis).
 
-    Secured by x-internal-secret header. Runs synchronously so the work
-    completes before Vercel kills the function (BackgroundTasks are unreliable).
+    Secured by x-internal-secret header. Uses BackgroundTask so the caller
+    gets a fast 200 response (caller has 10s timeout, LLM takes 20-30s).
     """
     secret = request.headers.get("x-internal-secret", "")
     if secret != settings.internal_secret:
@@ -250,10 +251,9 @@ async def internal_analyze(
     if not digest_id:
         raise HTTPException(status_code=400, detail="Missing digest_id")
 
-    print(f"[INTERNAL/ANALYZE] Running analysis for digest_id={digest_id}")
-    await run_analysis_phase(digest_id)
-    print(f"[INTERNAL/ANALYZE] Analysis completed for digest_id={digest_id}")
-    return {"status": "completed", "digest_id": digest_id}
+    print(f"[INTERNAL/ANALYZE] Queuing analysis for digest_id={digest_id}")
+    background_tasks.add_task(run_analysis_phase, digest_id)
+    return {"status": "accepted", "digest_id": digest_id}
 
 
 @router.post("/internal/collect")
