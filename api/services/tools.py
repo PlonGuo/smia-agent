@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from langfuse import observe
-from openai import AsyncOpenAI
+from langfuse.openai import AsyncOpenAI
 from pydantic_ai import RunContext
 
 from core.config import settings

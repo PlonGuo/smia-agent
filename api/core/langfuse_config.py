@@ -5,6 +5,7 @@ import os
 from typing import Optional
 
 from langfuse import get_client, observe
+from pydantic_ai import Agent
 
 from core.config import settings
 
@@ -34,6 +35,11 @@ def init_langfuse() -> None:
         os.environ["LANGFUSE_SECRET_KEY"] = settings.langfuse_secret_key
         os.environ["LANGFUSE_HOST"] = settings.langfuse_base_url
         _langfuse_enabled = True
+
+        # Instrument all PydanticAI agents so LLM calls (model, tokens, cost)
+        # are exported as OpenTelemetry spans and captured by Langfuse.
+        Agent.instrument_all()
+        logger.info("Langfuse enabled + PydanticAI agents instrumented")
     else:
         logger.warning(
             "Langfuse keys not configured — observability disabled. "
