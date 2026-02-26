@@ -1,65 +1,18 @@
-# SmIA Progress Tracker — AI Daily Digest Feature
-# Updated: 2026-02-24
+# SmIA Progress Tracker — [Next Feature TBD]
+# Updated: 2026-02-25
 
-## Feature Overview
-AI Daily Intelligence Aggregator — daily digest from arXiv, GitHub Trending, RSS/Blogs, and Bluesky.
-Plan: docs/plans/2026-02-24-ai-daily-digest.md
+## Current State
+No active feature in progress. See PROJECT-STATUS.md for overall project status.
 
-## Implementation Steps
+## What Was Done Last
+- AI Daily Digest backend fully implemented (Steps 1-6)
+- Production bug fixes: Telegram /digest flow, staleness recovery, notification with summary
+- Added Vercel serverless debugging rules to CLAUDE.md
 
-- [x] Step 1.1: Create migration SQL (002_add_digest_tables.sql)
-- [x] Step 1.2: Run migration via Supabase MCP (8 tables + RLS + RPC functions created)
-- [x] Step 1.3: Enable Supabase Realtime (daily_digests, digest_access_requests, user_bindings)
-- [x] Step 1.4: Create Pydantic models (digest_schemas.py)
-- [x] Step 1.5: Add TypeScript types (shared/types.ts)
-- [x] Step 1.6: Seed admin (jason.ghzr@gmail.com)
-- [x] Step 1.7: Write model unit tests (25 tests passing)
-- [x] Step 2.1: Update config (resend_api_key, admin_email, bluesky_app_password, internal_secret, app_url)
-- [x] Step 2.2: Create email service (Resend API)
-- [x] Step 2.3: Add permission helpers (is_admin, get_digest_access_status, seed_admin_if_empty)
-- [x] Step 2.4: Create admin routes + register in index.py + lifespan for admin seeding
-- [x] Step 2.5: Write tests (13 tests passing)
-- [x] Step 3.1: Install dependencies (arxiv, feedparser — resend done in Step 2)
-- [x] Step 3.2: Create Collector Protocol + Registry (base.py)
-- [x] Step 3.3: Create 4 collectors (arXiv, GitHub, RSS, Bluesky) + rss_feeds.json config
-- [x] Step 3.4: Self-registration in __init__.py
-- [x] Step 3.5: Write collector unit tests (22 tests passing)
-- [ ] Step 3.6: Live smoke tests (deferred to Step 11)
-- [ ] Step 4.1: Create digest agent (PydanticAI, no tools)
-- [ ] Step 4.2: Write agent tests
-- [ ] Step 5.1: Create two-phase orchestrator (collectors phase + LLM phase)
-- [ ] Step 5.2: Add Telegram notification
-- [ ] Step 5.3: Write orchestrator tests
-- [ ] Step 6.1: Create report routes + internal analyze endpoint
-- [ ] Step 6.2: Create bookmark + feedback routes
-- [ ] Step 6.3: Register routers + admin seeding in index.py
-- [ ] Step 6.4: Create CLI
-- [ ] Step 6.5: Write route tests
-- [ ] Step 7.1: Create Realtime hook
-- [ ] Step 7.2: Refactor Settings.tsx polling to Realtime
-- [ ] Step 7.3: Create useDigestPermissions hook
-- [ ] Step 7.4: Create Admin page + components
-- [ ] Step 7.5: Add routes to App.tsx + nav items to Layout.tsx
-- [ ] Step 7.6: Add API functions to api.ts
-- [ ] Step 8.1: Create AiDailyReport.tsx (4-state page)
-- [ ] Step 8.2: KanbanBoard + KanbanCard
-- [ ] Step 8.3: DigestSkeleton (shimmer + progress)
-- [ ] Step 8.4: CategoryBreakdown chart
-- [ ] Step 8.5: Mobile responsive
-- [ ] Step 9: History, Sharing, Export pages
-- [ ] Step 11: Integration tests + polish
-
-## Architecture Decision: Two-Phase Pipeline
-Split collectors and LLM into separate serverless functions to stay within Vercel Hobby 60s limit:
-- Phase 1 (Function A): Run 4 collectors → save to cache → HTTP trigger Phase 2
-- Phase 2 (Function B): Read cached data → LLM analysis → save completed digest
-Each phase gets its own 60s budget. Internal endpoint secured with shared secret.
+## What's Next (candidates)
+- AI Daily Digest frontend (Steps 7-9): hooks, admin page, digest page, history/sharing
+- Security hardening (docs/plans/security-hardening.md)
+- Phase 4 polish items from docs/features.md
 
 ## Blockers
 - None
-
-## Key Decisions
-- Two-phase pipeline split for Vercel Hobby compatibility
-- GPT-4.1 for digest analysis (~$0.12/day)
-- Lazy trigger (no cron) — first authorized user visit generates digest
-- PostgreSQL atomic RPC for race condition handling
