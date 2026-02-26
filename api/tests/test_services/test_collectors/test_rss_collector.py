@@ -2,13 +2,19 @@
 
 import pytest
 from unittest.mock import patch, MagicMock
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from time import struct_time
 
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
+
+
+def _recent_struct_time() -> struct_time:
+    """Return a struct_time 1 hour ago so it's always within the 48h window."""
+    dt = datetime.now(timezone.utc) - timedelta(hours=1)
+    return dt.timetuple()
 
 
 def _make_feed_entry(title="Test Post", published_parsed=None, summary="<p>Test content</p>"):
@@ -25,8 +31,7 @@ def _make_feed_entry(title="Test Post", published_parsed=None, summary="<p>Test 
     entry.author = "Author"
 
     if published_parsed is None:
-        # Recent time
-        entry.published_parsed = struct_time((2026, 2, 24, 12, 0, 0, 0, 55, 0))
+        entry.published_parsed = _recent_struct_time()
     else:
         entry.published_parsed = published_parsed
     entry.updated_parsed = None

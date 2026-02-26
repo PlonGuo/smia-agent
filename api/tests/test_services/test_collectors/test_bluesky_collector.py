@@ -2,12 +2,17 @@
 
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
+
+
+def _recent_iso() -> str:
+    """Return an ISO timestamp 1 hour ago so it's always within the 48h window."""
+    return (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _make_bsky_response(posts=None, status_code=200):
@@ -23,7 +28,7 @@ def _make_bsky_response(posts=None, status_code=200):
                     },
                     "record": {
                         "text": "Just published our new paper on efficient fine-tuning with LoRA improvements.",
-                        "createdAt": "2026-02-24T10:00:00Z",
+                        "createdAt": _recent_iso(),
                     },
                     "embed": None,
                 }
@@ -97,7 +102,7 @@ class TestBlueskyCollector:
                     "author": {"did": "did:plc:abc", "handle": "test.bsky.social"},
                     "record": {
                         "text": "Check out this paper",
-                        "createdAt": "2026-02-24T10:00:00Z",
+                        "createdAt": _recent_iso(),
                     },
                     "embed": {
                         "$type": "app.bsky.embed.external#view",
