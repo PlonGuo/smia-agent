@@ -31,9 +31,9 @@ def init_langfuse() -> None:
         return
 
     if settings.langfuse_public_key and settings.langfuse_secret_key:
-        os.environ["LANGFUSE_PUBLIC_KEY"] = settings.langfuse_public_key
-        os.environ["LANGFUSE_SECRET_KEY"] = settings.langfuse_secret_key
-        os.environ["LANGFUSE_HOST"] = settings.langfuse_base_url
+        os.environ["LANGFUSE_PUBLIC_KEY"] = settings.langfuse_public_key.strip()
+        os.environ["LANGFUSE_SECRET_KEY"] = settings.langfuse_secret_key.strip()
+        os.environ["LANGFUSE_HOST"] = settings.langfuse_base_url.strip()
         _langfuse_enabled = True
 
         # Instrument all PydanticAI agents so LLM calls (model, tokens, cost)
