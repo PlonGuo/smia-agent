@@ -78,7 +78,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             aria-label="Toggle color mode"
             variant="ghost"
             size="sm"
-            onClick={toggleColorMode}
+            onClick={(e) => toggleColorMode(e)}
           >
             {colorMode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </IconButton>
@@ -123,7 +123,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             aria-label="Toggle color mode"
             variant="ghost"
             size="sm"
-            onClick={toggleColorMode}
+            onClick={(e) => toggleColorMode(e)}
           >
             {colorMode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </IconButton>

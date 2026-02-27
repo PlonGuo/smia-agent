@@ -16,6 +16,22 @@ body {
   min-height: 100dvh;
 }
 
+/* ── Circular theme reveal (View Transitions API) ── */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+  animation: circle-expand 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes circle-expand {
+  from { clip-path: circle(0px at var(--toggle-x) var(--toggle-y)); }
+  to   { clip-path: circle(var(--toggle-end-radius) at var(--toggle-x) var(--toggle-y)); }
+}
+
 /* ============================================
    GLASSMORPHISM + CLAYMORPHISM UI OVERHAUL
    Internal pages only (not landing page)
