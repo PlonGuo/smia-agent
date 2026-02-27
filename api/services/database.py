@@ -146,7 +146,7 @@ def get_reports(
         return [], 0
 
     # Count query (exact count using PostgREST Prefer header)
-    count_query = client.table("analysis_reports").select("*", count=CountMethod.exact)
+    count_query = client.table("analysis_reports").select("id", count=CountMethod.exact)
     count_query = _apply_filters(count_query)
 
     try:

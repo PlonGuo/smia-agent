@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Box,
   Button,
@@ -18,6 +18,36 @@ import ReportCard from '../components/ReportCard';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 
 const PER_PAGE = 9;
+const CACHE_PREFIX = 'smia_dashboard:';
+
+/** Build a sessionStorage key from current filter params. */
+function cacheKey(page: number, sentiment: string, search: string) {
+  return `${CACHE_PREFIX}page=${page}&sentiment=${sentiment}&search=${search}`;
+}
+
+interface CachedData {
+  reports: TrendReport[];
+  total: number;
+}
+
+/** Try to read cached dashboard data for the given params. */
+function readCache(page: number, sentiment: string, search: string): CachedData | null {
+  try {
+    const raw = sessionStorage.getItem(cacheKey(page, sentiment, search));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Write dashboard data to sessionStorage cache. */
+function writeCache(page: number, sentiment: string, search: string, data: CachedData) {
+  try {
+    sessionStorage.setItem(cacheKey(page, sentiment, search), JSON.stringify(data));
+  } catch {
+    // sessionStorage full — ignore
+  }
+}
 
 export default function Dashboard() {
   const [reports, setReports] = useState<TrendReport[]>([]);
@@ -29,8 +59,23 @@ export default function Dashboard() {
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
 
+  // Track whether we showed cached data (skip showing skeleton on background refresh)
+  const hasCachedData = useRef(false);
+
   const fetchReports = useCallback(async () => {
-    setLoading(true);
+    // Check cache first — if hit, show cached data immediately
+    const cached = readCache(page, sentiment, search);
+    if (cached && cached.reports.length > 0) {
+      setReports(cached.reports);
+      setTotal(cached.total);
+      setLoading(false);
+      hasCachedData.current = true;
+    } else {
+      hasCachedData.current = false;
+      setLoading(true);
+    }
+
+    // Always fetch fresh data in background
     try {
       const params: ReportsParams = {
         page,
@@ -42,9 +87,13 @@ export default function Dashboard() {
       const data = await getReports(params);
       setReports(data.reports);
       setTotal(data.total);
+      writeCache(page, sentiment, search, { reports: data.reports, total: data.total });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load reports';
-      toaster.error({ title: 'Error', description: msg });
+      // Only show error if we don't have cached data to fall back on
+      if (!hasCachedData.current) {
+        const msg = err instanceof Error ? err.message : 'Failed to load reports';
+        toaster.error({ title: 'Error', description: msg });
+      }
     } finally {
       setLoading(false);
     }
@@ -57,6 +106,11 @@ export default function Dashboard() {
   const handleDelete = async (id: string) => {
     try {
       await deleteReport(id);
+      // Clear all dashboard caches so deleted report doesn't reappear from stale cache
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith(CACHE_PREFIX)) sessionStorage.removeItem(key);
+      }
       toaster.success({ title: 'Report deleted' });
       fetchReports();
     } catch (err: unknown) {
