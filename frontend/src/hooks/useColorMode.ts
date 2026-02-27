@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 
 type ColorMode = 'light' | 'dark';
 
@@ -35,15 +36,22 @@ export function useColorMode() {
     document.documentElement.style.setProperty('--toggle-y', `${y}px`);
     document.documentElement.style.setProperty('--toggle-end-radius', `${endRadius}px`);
 
-    const doToggle = () => setColorMode((prev) => (prev === 'dark' ? 'light' : 'dark'));
+    const newMode: ColorMode = colorMode === 'dark' ? 'light' : 'dark';
+
+    const doToggle = () => {
+      applyMode(newMode);
+      setColorMode(newMode);
+    };
 
     if (!document.startViewTransition) {
       doToggle();
       return;
     }
 
-    document.startViewTransition(doToggle);
-  }, []);
+    document.startViewTransition(() => {
+      flushSync(doToggle);
+    });
+  }, [colorMode]);
 
   return { colorMode, toggleColorMode, setColorMode };
 }
