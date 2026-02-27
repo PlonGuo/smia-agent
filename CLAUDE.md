@@ -24,7 +24,7 @@ When starting a new feature, read the corresponding plan first. Update status to
 | `docs/plans/2026-02-15-landing-page-3d-upgrade-design.md` | Done | 3D upgrade design doc |
 | `docs/plans/2026-02-16-relevance-gated-adaptive-fetching.md` | Done | Smart data fetching |
 | `docs/plans/2026-02-16-relevance-gated-adaptive-fetching-design.md` | Done | Adaptive fetching design doc |
-| `docs/plans/2026-02-24-ai-daily-digest.md` | Pending | AI Daily Report feature |
+| `docs/plans/2026-02-24-ai-daily-digest.md` | Done | AI Daily Report feature |
 | `docs/plans/2026-02-26-dashboard-cold-start-fix.md` | Done | Dashboard SWR cache for cold start perf |
 | `docs/plans/security-hardening.md` | Pending | Security improvements |
 
