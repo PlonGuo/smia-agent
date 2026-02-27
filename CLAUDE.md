@@ -25,6 +25,7 @@ When starting a new feature, read the corresponding plan first. Update status to
 | `docs/plans/2026-02-16-relevance-gated-adaptive-fetching.md` | Done | Smart data fetching |
 | `docs/plans/2026-02-16-relevance-gated-adaptive-fetching-design.md` | Done | Adaptive fetching design doc |
 | `docs/plans/2026-02-24-ai-daily-digest.md` | Pending | AI Daily Report feature |
+| `docs/plans/2026-02-26-dashboard-cold-start-fix.md` | Done | Dashboard SWR cache for cold start perf |
 | `docs/plans/security-hardening.md` | Pending | Security improvements |
 
 ## Available MCP Tools
@@ -45,6 +46,7 @@ You are authorized to spawn sub-agents for parallel work when beneficial. Recomm
 ## Working Rules
 
 - **Plan-driven development**: When starting a new feature, read the corresponding plan in `docs/plans/`. Execute it step-by-step.
+- **Plan documentation**: Whenever plan mode is used to make changes, always write a dated `.md` file in `docs/plans/` recording the context, changes, and results. Then update the Plans Index table in this file with the new plan entry.
 - **Follow existing patterns**: Before creating new files, check similar routes/components/services for conventions. The codebase has established patterns — reuse them.
 - **Incremental progress**: Complete ONE feature at a time from `docs/features.md`. Check it off when done.
 - **Always update `claude-progress.txt`** before ending a session with: what was done, what's next, any blockers.

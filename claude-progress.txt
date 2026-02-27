@@ -1,18 +1,23 @@
-# SmIA Progress Tracker — [Next Feature TBD]
-# Updated: 2026-02-25
+# SmIA Progress Tracker — Dashboard Cold Start Fix
+# Updated: 2026-02-26
 
 ## Current State
-No active feature in progress. See PROJECT-STATUS.md for overall project status.
+Dashboard cold start fix completed and pushed to `development` branch.
 
-## What Was Done Last
-- AI Daily Digest backend fully implemented (Steps 1-6)
-- Production bug fixes: Telegram /digest flow, staleness recovery, notification with summary
-- Added Vercel serverless debugging rules to CLAUDE.md
+## What Was Done
+- Diagnosed Dashboard slow loading (5-10s) as Vercel serverless cold start issue
+- Added sessionStorage SWR cache to Dashboard.tsx — cached data shown instantly on revisit
+- Optimized count query in database.py (select id instead of *)
+- Verified: 256 backend tests pass, frontend builds clean
+- Committed: 59aebc2, pushed to development
+- Plan recorded: docs/plans/2026-02-26-dashboard-cold-start-fix.md
+- Added "Plan documentation" rule to CLAUDE.md Working Rules
 
 ## What's Next (candidates)
 - AI Daily Digest frontend (Steps 7-9): hooks, admin page, digest page, history/sharing
 - Security hardening (docs/plans/security-hardening.md)
 - Phase 4 polish items from docs/features.md
+- Consider upgrading to Vercel Pro for cron keep-alive (eliminates first-visit cold start too)
 
 ## Blockers
 - None
