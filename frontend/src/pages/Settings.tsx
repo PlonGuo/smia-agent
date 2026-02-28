@@ -236,7 +236,7 @@ export default function Settings() {
             <Heading size="md">Appearance</Heading>
           </Card.Header>
           <Card.Body>
-            <Button className="btn-silicone" variant="outline" onClick={toggleColorMode}>
+            <Button className="btn-silicone" variant="outline" onClick={(e) => toggleColorMode(e)}>
               {colorMode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
               {colorMode === 'dark' ? 'Light Mode' : 'Dark Mode'}
             </Button>
