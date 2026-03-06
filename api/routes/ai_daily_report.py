@@ -244,7 +244,8 @@ async def internal_analyze(
     gets a fast 200 response (caller has 10s timeout, LLM takes 20-30s).
     """
     secret = request.headers.get("x-internal-secret", "")
-    if secret != settings.internal_secret:
+    if not settings.internal_secret or secret != settings.internal_secret:
+        print("[INTERNAL/ANALYZE] Auth failed: secret not configured or mismatch")
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     digest_id = body.get("digest_id")
@@ -267,8 +268,8 @@ async def internal_collect(
     """
     print(f"[INTERNAL/COLLECT] Received request, body={body}")
     secret = request.headers.get("x-internal-secret", "")
-    if secret != settings.internal_secret:
-        print("[INTERNAL/COLLECT] Auth failed: secret mismatch")
+    if not settings.internal_secret or secret != settings.internal_secret:
+        print("[INTERNAL/COLLECT] Auth failed: secret not configured or mismatch")
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     digest_id = body.get("digest_id")

@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     bluesky_app_password: str = ""
 
     # Internal (two-phase pipeline trigger)
-    internal_secret: str = "smia-internal-digest-trigger-key"
+    internal_secret: str = ""
     app_url: str = ""  # Set in Vercel env, or auto-derived from VERCEL_URL
 
     # Environment (auto-detected)
