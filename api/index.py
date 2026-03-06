@@ -8,6 +8,7 @@ if _api_dir not in sys.path:
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from core.config import settings
 from core.langfuse_config import init_langfuse
 from contextlib import asynccontextmanager
 
@@ -32,12 +33,21 @@ async def lifespan(app):
 
 app = FastAPI(title="SmIA API", version="0.1.0", lifespan=lifespan)
 
+_ALLOWED_ORIGINS = [
+    "https://smia-agent.vercel.app",
+    "https://smia-agent-huizhirong-guos-projects.vercel.app",
+    "https://smia-agent-git-main-huizhirong-guos-projects.vercel.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_ALLOWED_ORIGINS + (
+        ["http://localhost:5173", "http://localhost:3000"]
+        if settings.environment in ("development", "vercel-dev") else []
+    ),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "x-internal-secret"],
 )
 
 app.include_router(analyze_router)
