@@ -35,18 +35,9 @@ async def authed_client():
 
 class TestGetTodayDigest:
     @pytest.mark.asyncio
-    async def test_requires_access(self, authed_client):
-        """Non-authorized users get 403."""
-        with patch("routes.ai_daily_report.get_digest_access_status", return_value="none"):
-            resp = await authed_client.get("/api/ai-daily-report/today")
-            assert resp.status_code == 403
-            assert "Access status: none" in resp.json()["detail"]
-
-    @pytest.mark.asyncio
     async def test_returns_completed_digest(self, authed_client):
-        """Admin sees completed digest."""
-        with patch("routes.ai_daily_report.get_digest_access_status", return_value="admin"), \
-             patch("routes.ai_daily_report.claim_or_get_digest", return_value={
+        """Any authenticated user sees completed digest."""
+        with patch("routes.ai_daily_report.claim_or_get_digest", return_value={
                  "status": "completed",
                  "digest_id": "d-1",
                  "digest": {"executive_summary": "Test"},
@@ -61,8 +52,7 @@ class TestGetTodayDigest:
     @pytest.mark.asyncio
     async def test_claimed_triggers_background(self, authed_client):
         """When claim is won, background task is started."""
-        with patch("routes.ai_daily_report.get_digest_access_status", return_value="approved"), \
-             patch("routes.ai_daily_report.claim_or_get_digest", return_value={
+        with patch("routes.ai_daily_report.claim_or_get_digest", return_value={
                  "status": "collecting",
                  "digest_id": "d-2",
                  "claimed": True,
@@ -75,40 +65,24 @@ class TestGetTodayDigest:
 
 class TestAccessStatus:
     @pytest.mark.asyncio
-    async def test_returns_status(self, authed_client):
-        with patch("routes.ai_daily_report.get_digest_access_status", return_value="admin"):
-            resp = await authed_client.get("/api/ai-daily-report/status")
-            assert resp.status_code == 200
-            assert resp.json()["access"] == "admin"
+    async def test_returns_approved_for_any_user(self, authed_client):
+        """All authenticated users get 'approved' status (open access)."""
+        resp = await authed_client.get("/api/ai-daily-report/status")
+        assert resp.status_code == 200
+        assert resp.json()["access"] == "approved"
 
 
 class TestRequestAccess:
     @pytest.mark.asyncio
-    async def test_creates_request(self, authed_client):
-        mock_client = MagicMock()
-        mock_client.table.return_value.insert.return_value.execute.return_value = MagicMock()
-
-        with patch("routes.ai_daily_report.get_digest_access_status", return_value="none"), \
-             patch("routes.ai_daily_report.get_supabase_client", return_value=mock_client), \
-             patch("routes.ai_daily_report.get_all_admin_emails", return_value=["admin@test.com"]), \
-             patch("routes.ai_daily_report.send_access_request_notification"):
-            resp = await authed_client.post(
-                "/api/ai-daily-report/access-request",
-                json={"email": "user@test.com", "reason": "I need access to the daily digest"},
-            )
-            assert resp.status_code == 201
-            assert resp.json()["status"] == "pending"
-
-    @pytest.mark.asyncio
-    async def test_already_authorized(self, authed_client):
-        with patch("routes.ai_daily_report.get_digest_access_status", return_value="admin"):
-            resp = await authed_client.post(
-                "/api/ai-daily-report/access-request",
-                json={"email": "user@test.com", "reason": ""},
-            )
-            # Returns 201 (route default status_code) even for early return
-            assert resp.status_code == 201
-            assert resp.json()["status"] == "already_authorized"
+    async def test_returns_already_authorized(self, authed_client):
+        """With open access, all users are already authorized."""
+        resp = await authed_client.post(
+            "/api/ai-daily-report/access-request",
+            json={"email": "user@test.com", "reason": "I need access"},
+        )
+        assert resp.status_code == 201
+        assert resp.json()["status"] == "already_authorized"
+        assert resp.json()["access"] == "approved"
 
 
 class TestListDigests:
@@ -122,8 +96,7 @@ class TestListDigests:
             count=1
         )
 
-        with patch("routes.ai_daily_report.get_digest_access_status", return_value="approved"), \
-             patch("routes.ai_daily_report.get_supabase_client", return_value=mock_client):
+        with patch("routes.ai_daily_report.get_supabase_client", return_value=mock_client):
             resp = await authed_client.get("/api/ai-daily-report/list")
             assert resp.status_code == 200
 
