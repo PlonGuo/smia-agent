@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     admin_email: str = ""  # Bootstrap only: seeds first admin
 
+    # Gmail SMTP (for update notifications)
+    gmail_address: str = ""
+    gmail_app_password: str = ""
+
     # Bluesky (optional)
     bluesky_app_password: str = ""
 
