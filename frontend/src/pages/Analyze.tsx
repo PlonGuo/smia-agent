@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Badge, Box, Button, Flex, Heading, Text, Stack, Progress } from '@chakra-ui/react';
 import type { TrendReport, TimeRange } from '../../../shared/types';
-import { analyzeQuery } from '../lib/api';
+import { analyzeQuery, getAnalyzeQuota } from '../lib/api';
 import { toaster } from '../lib/toaster';
 import AnalysisForm from '../components/AnalysisForm';
 import ReportViewer from '../components/ReportViewer';
@@ -39,6 +39,22 @@ export default function Analyze() {
   const [lastQuery, setLastQuery] = useState('');
   const [lastTimeRange, setLastTimeRange] = useState<TimeRange>('week');
   const [stage, setStage] = useState(0);
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [dailyLimit, setDailyLimit] = useState(5);
+  const [resetsAt, setResetsAt] = useState<string | null>(null);
+
+  // Fetch quota on mount
+  useEffect(() => {
+    getAnalyzeQuota()
+      .then((q) => {
+        setRemaining(q.remaining);
+        setDailyLimit(q.daily_limit);
+        setResetsAt(q.resets_at);
+      })
+      .catch(() => {
+        // Graceful degradation — form works without quota display
+      });
+  }, []);
 
   // Set refresh flag on beforeunload so we know it's a reload, not navigation
   useEffect(() => {
@@ -79,6 +95,9 @@ export default function Analyze() {
       const result = await analyzeQuery(query, timeRange, forceRefresh);
       updateReport(result.report);
       setIsCached(result.cached);
+      if (result.remaining !== undefined) {
+        setRemaining(result.remaining);
+      }
       if (result.cached) {
         toaster.success({ title: 'Loaded from cache (instant)' });
       } else {
@@ -112,7 +131,13 @@ export default function Analyze() {
           </Text>
         </Box>
 
-        <AnalysisForm onSubmit={handleAnalyze} loading={loading} />
+        <AnalysisForm
+          onSubmit={handleAnalyze}
+          loading={loading}
+          remaining={remaining}
+          dailyLimit={dailyLimit}
+          resetsAt={resetsAt}
+        />
 
         {loading && (
           <Stack gap={3}>

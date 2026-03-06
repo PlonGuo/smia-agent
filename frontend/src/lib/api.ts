@@ -1,5 +1,6 @@
 import type {
   AnalyzeResponse,
+  QuotaResponse,
   ReportsListResponse,
   TrendReport,
   BindCodeResponse,
@@ -50,6 +51,10 @@ export async function analyzeQuery(
       force_refresh: forceRefresh,
     }),
   });
+}
+
+export async function getAnalyzeQuota(): Promise<QuotaResponse> {
+  return apiClient<QuotaResponse>('/analyze/quota');
 }
 
 export interface ReportsParams {
