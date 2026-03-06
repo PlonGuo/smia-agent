@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     # Telegram
     telegram_bot_token: str = ""
     telegram_webhook_url: str = ""
+    telegram_webhook_secret: str = ""
 
     # YouTube
     youtube_api_key: str = ""
@@ -54,7 +55,7 @@ class Settings(BaseSettings):
     bluesky_app_password: str = ""
 
     # Internal (two-phase pipeline trigger)
-    internal_secret: str = "smia-internal-digest-trigger-key"
+    internal_secret: str = ""
     app_url: str = ""  # Set in Vercel env, or auto-derived from VERCEL_URL
 
     # Environment (auto-detected)
