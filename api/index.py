@@ -6,8 +6,11 @@ _api_dir = str(Path(__file__).resolve().parent)
 if _api_dir not in sys.path:
     sys.path.insert(0, _api_dir)
 
-from fastapi import FastAPI
+import traceback
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from core.config import settings
 from core.langfuse_config import init_langfuse
 from contextlib import asynccontextmanager
@@ -58,6 +61,16 @@ app.include_router(admin_router)
 app.include_router(ai_daily_report_router)
 app.include_router(bookmarks_router)
 app.include_router(feedback_router)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch unhandled exceptions, log details, return sanitized response."""
+    tb = traceback.format_exc()
+    print(f"[UNHANDLED] {request.method} {request.url.path}: {type(exc).__name__}: {exc}\n{tb[-500:]}")
+    if settings.environment in ("development", "vercel-dev"):
+        return JSONResponse(status_code=500, content={"detail": f"{type(exc).__name__}: {exc}"})
+    return JSONResponse(status_code=500, content={"detail": "An internal error occurred."})
 
 
 @app.get("/api/health")
