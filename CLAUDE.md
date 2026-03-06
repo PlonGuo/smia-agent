@@ -26,6 +26,7 @@ When starting a new feature, read the corresponding plan first. Update status to
 | `docs/plans/2026-02-16-relevance-gated-adaptive-fetching-design.md` | Done | Adaptive fetching design doc |
 | `docs/plans/2026-02-24-ai-daily-digest.md` | Done | AI Daily Report feature |
 | `docs/plans/2026-02-26-dashboard-cold-start-fix.md` | Done | Dashboard SWR cache for cold start perf |
+| `docs/plans/2026-03-06-open-digest-analyze-limit.md` | Done | Open digest access + 5/day analyze limit |
 | `docs/plans/security-hardening.md` | Pending | Security improvements |
 
 ## Available MCP Tools
@@ -123,6 +124,10 @@ You are authorized to spawn sub-agents for parallel work when beneficial. Recomm
 - **Use Vercel MCP or `vercel logs`** to check function logs after deployment. Always check logs when debugging production issues before making code changes.
 - **Keep `logger.error()` for structured logging** alongside `print()` — logger feeds into any log aggregation, print feeds into Vercel's function log viewer.
 - **Traceback on errors**: In except blocks, always capture `traceback.format_exc()` and print it. Truncate to last 500 chars if storing in DB fields.
+
+## Debugging with Error Logs
+
+- When the user says to debug based on error logs (e.g., "根据 errors log 去 debug", "check the error logs", "debug from errors"), **automatically read `docs/errors/errors-for-debug.md`** first to get the error context before starting any investigation.
 
 ## Confusion during developing
 
