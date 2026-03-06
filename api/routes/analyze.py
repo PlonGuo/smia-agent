@@ -35,11 +35,11 @@ async def analyze(
     Supports time_range (day/week/month/year) and force_refresh params.
     """
     # Rate limit check
-    allowed, remaining = check_rate_limit(user.user_id, source="web")
+    allowed, remaining = check_rate_limit(user.user_id)
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Rate limit exceeded. You can perform 100 analyses per hour.",
+            detail="Rate limit exceeded. You can perform 5 analyses per day.",
         )
 
     try:
