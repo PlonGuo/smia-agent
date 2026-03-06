@@ -26,6 +26,7 @@ When starting a new feature, read the corresponding plan first. Update status to
 | `docs/plans/2026-02-16-relevance-gated-adaptive-fetching-design.md` | Done | Adaptive fetching design doc |
 | `docs/plans/2026-02-24-ai-daily-digest.md` | Done | AI Daily Report feature |
 | `docs/plans/2026-02-26-dashboard-cold-start-fix.md` | Done | Dashboard SWR cache for cold start perf |
+| `docs/plans/2026-03-06-open-digest-analyze-limit.md` | Done | Open digest access + 5/day analyze limit |
 | `docs/plans/2026-03-06-security-hardening.md` | Done | Security improvements |
 
 ## Available MCP Tools
@@ -91,6 +92,20 @@ You are authorized to spawn sub-agents for parallel work when beneficial. Recomm
 
 - **All screenshots taken by Playwright MCP must be saved to the `screen-shot/` folder** (use the `filename` parameter, e.g. `filename: "screen-shot/my-screenshot.png"`). Never leave screenshots in the project root directory.
 - The `screen-shot/` folder is gitignored — screenshots are for local review only.
+
+## Vercel Serverless Debugging
+
+- **Always use `print()` for serverless log output** — Vercel captures stdout/stderr in function logs. Use `print(f"[MODULE] message")` with a bracketed prefix (e.g., `[DIGEST]`, `[TG /digest]`, `[INTERNAL/ANALYZE]`) so logs are filterable.
+- **Log at key lifecycle points**: function entry, before/after external calls (DB, HTTP, LLM), branch decisions, and error paths. This is critical because serverless functions are stateless — you can't attach a debugger.
+- **Include context in logs**: Always log relevant IDs (digest_id, user_id), status values, and timing info. Example: `print(f"[DIGEST] Phase 2: {len(items)} items loaded, calling LLM...")`.
+- **Log before raising HTTPException**: Print the error context before raising so it appears in Vercel logs even if the client only sees the HTTP status.
+- **Use Vercel MCP or `vercel logs`** to check function logs after deployment. Always check logs when debugging production issues before making code changes.
+- **Keep `logger.error()` for structured logging** alongside `print()` — logger feeds into any log aggregation, print feeds into Vercel's function log viewer.
+- **Traceback on errors**: In except blocks, always capture `traceback.format_exc()` and print it. Truncate to last 500 chars if storing in DB fields.
+
+## Debugging with Error Logs
+
+- When the user says to debug based on error logs (e.g., "根据 errors log 去 debug", "check the error logs", "debug from errors"), **automatically read `docs/errors/errors-for-debug.md`** first to get the error context before starting any investigation.
 
 ## Confusion during developing
 

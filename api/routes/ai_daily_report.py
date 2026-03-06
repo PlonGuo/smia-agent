@@ -11,12 +11,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from core.auth import AuthenticatedUser, get_current_user
 from core.config import settings
 from models.digest_schemas import AccessRequestCreate
-from services.database import (
-    get_all_admin_emails,
-    get_supabase_client,
-)
+from services.database import get_supabase_client
 from services.digest_service import claim_or_get_digest, run_analysis_phase, run_collectors_phase
-from services.email_service import send_access_request_notification
 
 logger = logging.getLogger(__name__)
 
@@ -152,34 +148,12 @@ async def request_access(
     body: AccessRequestCreate,
     user: AuthenticatedUser = Depends(get_current_user),
 ):
-    """Submit a digest access request."""
-    # Check if already authorized
-    access = get_digest_access_status(user.user_id, user.access_token)
-    if access in ("admin", "approved"):
-        return {"status": "already_authorized", "access": access}
+    """Submit a digest access request.
 
-    if access == "pending":
-        return {"status": "already_pending"}
-
-    client = get_supabase_client()
-
-    # Create request
-    client.table("digest_access_requests").insert({
-        "user_id": user.user_id,
-        "email": body.email,
-        "reason": body.reason,
-        "status": "pending",
-    }).execute()
-
-    # Notify admins
-    admin_emails = get_all_admin_emails()
-    for email in admin_emails:
-        try:
-            send_access_request_notification(email, body.email, body.reason)
-        except Exception as exc:
-            logger.error("Failed to email admin %s: %s", email, exc)
-
-    return {"status": "pending"}
+    With open access, all authenticated users are already authorized.
+    Kept for backward compatibility.
+    """
+    return {"status": "already_authorized", "access": "approved"}
 
 
 # ---------------------------------------------------------------------------
