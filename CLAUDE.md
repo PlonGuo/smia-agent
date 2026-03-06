@@ -27,7 +27,7 @@ When starting a new feature, read the corresponding plan first. Update status to
 | `docs/plans/2026-02-24-ai-daily-digest.md` | Done | AI Daily Report feature |
 | `docs/plans/2026-02-26-dashboard-cold-start-fix.md` | Done | Dashboard SWR cache for cold start perf |
 | `docs/plans/2026-03-06-open-digest-analyze-limit.md` | Done | Open digest access + 5/day analyze limit |
-| `docs/plans/security-hardening.md` | Pending | Security improvements |
+| `docs/plans/2026-03-06-security-hardening.md` | Done | Security improvements |
 
 ## Available MCP Tools
 
@@ -62,36 +62,14 @@ You are authorized to spawn sub-agents for parallel work when beneficial. Recomm
 - **Use MCP tools actively**: Playwright for docs/learning, Supabase for DB operations.
 - **Package managers**: Use `uv` for backend (Python), `pnpm` for frontend (Node.js). Never use npm or pip directly.
 
-## Testing Strategy
+## Development Rules
 
-### Backend Testing (pytest + httpx)
-- Use `pytest` as the test runner for all backend tests
-- Use `httpx.AsyncClient` with FastAPI's `TestClient` for API endpoint testing
-- Test files go in `api/tests/` mirroring the source structure (e.g., `api/tests/test_routes/test_analyze.py`)
-- Run tests with: `cd api && uv run pytest -v`
-- Write tests BEFORE or alongside each feature implementation
-- Mock external services (OpenAI, Supabase, Crawl4AI) in unit tests
-- Use fixtures for common test setup (auth headers, sample data)
+详细规范拆分到独立文件，按需查阅：
 
-### Frontend Testing (Playwright MCP)
-- Use **Playwright MCP** for E2E UI testing after building frontend components
-- **Sign-in credentials**: Read `TEST_EMAIL` and `TEST_PASSWORD` from `local.env` for authenticated Playwright testing
-- Test workflow: start dev server (`pnpm dev`), then use Playwright MCP to interact with pages
-- Key things to test with Playwright:
-  - Page navigation and routing works correctly
-  - Chakra UI components render properly (forms, buttons, cards)
-  - Dark/light mode toggle works
-  - Analysis flow: submit query → progress indicator → results display
-  - Dashboard: report cards render, filtering/sorting works
-  - Responsive layout at different viewport sizes
-  - Auth flow: login/signup forms, protected route redirects
-- Use `browser_snapshot` (accessibility tree) over screenshots for verifying content
-- Use `browser_navigate` + `browser_click` + `browser_type` for interaction testing
-
-### Integration Testing
-- Test the full analysis pipeline: API request → tool calls → structured output → database save
-- Verify Langfuse traces are created for each analysis
-- Test Supabase RLS policies work (user A cannot access user B's reports)
+| 规则 | 文件 | 简述 |
+|------|------|------|
+| 测试策略 | `docs/rules/testing.md` | pytest + Playwright + 集成测试规范 |
+| Vercel 调试 | `docs/rules/vercel-debugging.md` | serverless 日志和调试规范 |
 
 ## Tech Stack
 

@@ -70,5 +70,5 @@ async def analyze(
         logger.error("Analysis failed for query '%s': %s\n%s", body.query, exc, tb)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Analysis failed: {type(exc).__name__}: {exc}",
+            detail="Analysis failed. Please try again later.",
         ) from exc

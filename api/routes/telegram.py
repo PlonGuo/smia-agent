@@ -1,10 +1,8 @@
 """Telegram webhook endpoint.
 
 Receives updates from Telegram Bot API and dispatches them
-to the telegram_service handler.  No JWT auth required — the
-endpoint validates the request comes from Telegram by checking
-the bot token in the URL path (Telegram's recommended approach
-for webhook security).
+to the telegram_service handler. Secured via X-Telegram-Bot-Api-Secret-Token
+header validation (set when registering webhook with Telegram).
 """
 
 from __future__ import annotations
@@ -14,6 +12,7 @@ import logging
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from core.config import settings
 from services.telegram_service import handle_update
 
 logger = logging.getLogger(__name__)
@@ -30,6 +29,13 @@ async def telegram_webhook(
     Returns 200 immediately and processes the update in a background task
     to avoid Telegram's webhook timeout (60 seconds).
     """
+    # Verify request comes from Telegram via secret token header
+    if settings.telegram_webhook_secret:
+        header_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+        if header_secret != settings.telegram_webhook_secret:
+            print("[TG WEBHOOK] Rejected: invalid secret token")
+            return JSONResponse({"ok": False}, status_code=403)
+
     try:
         update = await request.json()
     except Exception:
