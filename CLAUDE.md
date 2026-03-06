@@ -61,36 +61,14 @@ You are authorized to spawn sub-agents for parallel work when beneficial. Recomm
 - **Use MCP tools actively**: Playwright for docs/learning, Supabase for DB operations.
 - **Package managers**: Use `uv` for backend (Python), `pnpm` for frontend (Node.js). Never use npm or pip directly.
 
-## Testing Strategy
+## Development Rules
 
-### Backend Testing (pytest + httpx)
-- Use `pytest` as the test runner for all backend tests
-- Use `httpx.AsyncClient` with FastAPI's `TestClient` for API endpoint testing
-- Test files go in `api/tests/` mirroring the source structure (e.g., `api/tests/test_routes/test_analyze.py`)
-- Run tests with: `cd api && uv run pytest -v`
-- Write tests BEFORE or alongside each feature implementation
-- Mock external services (OpenAI, Supabase, Crawl4AI) in unit tests
-- Use fixtures for common test setup (auth headers, sample data)
+详细规范拆分到独立文件，按需查阅：
 
-### Frontend Testing (Playwright MCP)
-- Use **Playwright MCP** for E2E UI testing after building frontend components
-- **Sign-in credentials**: Read `TEST_EMAIL` and `TEST_PASSWORD` from `local.env` for authenticated Playwright testing
-- Test workflow: start dev server (`pnpm dev`), then use Playwright MCP to interact with pages
-- Key things to test with Playwright:
-  - Page navigation and routing works correctly
-  - Chakra UI components render properly (forms, buttons, cards)
-  - Dark/light mode toggle works
-  - Analysis flow: submit query → progress indicator → results display
-  - Dashboard: report cards render, filtering/sorting works
-  - Responsive layout at different viewport sizes
-  - Auth flow: login/signup forms, protected route redirects
-- Use `browser_snapshot` (accessibility tree) over screenshots for verifying content
-- Use `browser_navigate` + `browser_click` + `browser_type` for interaction testing
-
-### Integration Testing
-- Test the full analysis pipeline: API request → tool calls → structured output → database save
-- Verify Langfuse traces are created for each analysis
-- Test Supabase RLS policies work (user A cannot access user B's reports)
+| 规则 | 文件 | 简述 |
+|------|------|------|
+| 测试策略 | `docs/rules/testing.md` | pytest + Playwright + 集成测试规范 |
+| Vercel 调试 | `docs/rules/vercel-debugging.md` | serverless 日志和调试规范 |
 
 ## Tech Stack
 
@@ -113,16 +91,6 @@ You are authorized to spawn sub-agents for parallel work when beneficial. Recomm
 
 - **All screenshots taken by Playwright MCP must be saved to the `screen-shot/` folder** (use the `filename` parameter, e.g. `filename: "screen-shot/my-screenshot.png"`). Never leave screenshots in the project root directory.
 - The `screen-shot/` folder is gitignored — screenshots are for local review only.
-
-## Vercel Serverless Debugging
-
-- **Always use `print()` for serverless log output** — Vercel captures stdout/stderr in function logs. Use `print(f"[MODULE] message")` with a bracketed prefix (e.g., `[DIGEST]`, `[TG /digest]`, `[INTERNAL/ANALYZE]`) so logs are filterable.
-- **Log at key lifecycle points**: function entry, before/after external calls (DB, HTTP, LLM), branch decisions, and error paths. This is critical because serverless functions are stateless — you can't attach a debugger.
-- **Include context in logs**: Always log relevant IDs (digest_id, user_id), status values, and timing info. Example: `print(f"[DIGEST] Phase 2: {len(items)} items loaded, calling LLM...")`.
-- **Log before raising HTTPException**: Print the error context before raising so it appears in Vercel logs even if the client only sees the HTTP status.
-- **Use Vercel MCP or `vercel logs`** to check function logs after deployment. Always check logs when debugging production issues before making code changes.
-- **Keep `logger.error()` for structured logging** alongside `print()` — logger feeds into any log aggregation, print feeds into Vercel's function log viewer.
-- **Traceback on errors**: In except blocks, always capture `traceback.format_exc()` and print it. Truncate to last 500 chars if storing in DB fields.
 
 ## Confusion during developing
 
