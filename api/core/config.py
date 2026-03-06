@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     # Telegram
     telegram_bot_token: str = ""
     telegram_webhook_url: str = ""
+    telegram_webhook_secret: str = ""
 
     # YouTube
     youtube_api_key: str = ""
