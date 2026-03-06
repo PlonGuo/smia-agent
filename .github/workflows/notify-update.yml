@@ -1,0 +1,37 @@
+name: Notify Users on Push
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    name: Send Update Email
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send notification to backend
+        env:
+          API_URL: ${{ secrets.SMIA_API_URL }}
+          INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
+        run: |
+          # Build commits JSON from push event
+          COMMITS='${{ toJSON(github.event.commits) }}'
+
+          # Transform to simplified payload
+          PAYLOAD=$(echo "$COMMITS" | jq '{
+            commits: [.[] | {
+              id: .id,
+              message: .message,
+              author: .author.name,
+              url: .url
+            }]
+          }')
+
+          COMMIT_COUNT=$(echo "$PAYLOAD" | jq '.commits | length')
+          echo "Sending notification with ${COMMIT_COUNT} commits"
+
+          curl -f -X POST "${API_URL}/api/internal/notify-update" \
+            -H "Content-Type: application/json" \
+            -H "x-internal-secret: ${INTERNAL_SECRET}" \
+            -d "$PAYLOAD" \
+            --max-time 30
