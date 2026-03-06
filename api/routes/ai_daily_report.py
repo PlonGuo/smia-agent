@@ -12,7 +12,6 @@ from core.auth import AuthenticatedUser, get_current_user
 from core.config import settings
 from models.digest_schemas import AccessRequestCreate
 from services.database import (
-    get_digest_access_status,
     get_all_admin_emails,
     get_supabase_client,
 )
@@ -39,13 +38,6 @@ async def get_today_digest(
     Returns FAST. If we claimed the lock, the collectors pipeline runs as a
     BackgroundTask so we don't block the HTTP response.
     """
-    access = get_digest_access_status(user.user_id, user.access_token)
-    if access not in ("admin", "approved"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Access status: {access}",
-        )
-
     result = claim_or_get_digest(user.user_id, user.access_token)
 
     if result.get("claimed"):
@@ -58,9 +50,12 @@ async def get_today_digest(
 async def get_access_status(
     user: AuthenticatedUser = Depends(get_current_user),
 ):
-    """Return current user's digest access status."""
-    access = get_digest_access_status(user.user_id, user.access_token)
-    return {"access": access}
+    """Return current user's digest access status.
+
+    With open access, all authenticated users are treated as approved.
+    Kept for backward compatibility with frontend.
+    """
+    return {"access": "approved"}
 
 
 @router.get("/list")
@@ -69,11 +64,7 @@ async def list_digests(
     per_page: int = Query(20, ge=1, le=100),
     user: AuthenticatedUser = Depends(get_current_user),
 ):
-    """List past digests (last 30 days). Requires digest access."""
-    access = get_digest_access_status(user.user_id, user.access_token)
-    if access not in ("admin", "approved"):
-        raise HTTPException(status_code=403, detail=f"Access status: {access}")
-
+    """List past digests (last 30 days)."""
     client = get_supabase_client()
     offset = (page - 1) * per_page
 
@@ -136,11 +127,7 @@ async def get_digest(
     digest_id: str,
     user: AuthenticatedUser = Depends(get_current_user),
 ):
-    """Get specific digest by ID. Requires digest access."""
-    access = get_digest_access_status(user.user_id, user.access_token)
-    if access not in ("admin", "approved"):
-        raise HTTPException(status_code=403, detail=f"Access status: {access}")
-
+    """Get specific digest by ID."""
     client = get_supabase_client()
     resp = (
         client.table("daily_digests")
@@ -206,10 +193,6 @@ async def create_share_token(
     user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Generate a shareable link for a digest."""
-    access = get_digest_access_status(user.user_id, user.access_token)
-    if access not in ("admin", "approved"):
-        raise HTTPException(status_code=403, detail=f"Access status: {access}")
-
     token = uuid.uuid4().hex[:16]
     expires_at = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
 
