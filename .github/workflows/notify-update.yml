@@ -43,23 +43,20 @@ jobs:
           COMMIT_COUNT=$(jq '.commits | length' /tmp/payload.json)
           echo "Payload size: ${PAYLOAD_SIZE} bytes, ${COMMIT_COUNT} commits"
 
-          # Trim any trailing whitespace/newlines from URL
-          CLEAN_URL=$(echo -n "${API_URL}" | tr -d '[:space:]')
+          # Strip whitespace and trailing slash from URL to avoid double-slash in path
+          CLEAN_URL=$(echo -n "${API_URL}" | tr -d '[:space:]' | sed 's:/*$::')
           FULL_URL="${CLEAN_URL}/api/internal/notify-update"
           echo "Target URL: ${FULL_URL}"
-          echo "URL length: ${#FULL_URL}"
 
-          # -d implies POST; do NOT use -X POST (breaks redirect body handling)
-          HTTP_CODE=$(curl -v -o /tmp/response.json -w "%{http_code}" \
-            -L --post301 --post302 --post303 \
+          # Force HTTP/1.1 to avoid potential HTTP/2 body issues
+          HTTP_CODE=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            --http1.1 \
             -H "Content-Type: application/json" \
             -H "x-internal-secret: ${INTERNAL_SECRET}" \
             -d @/tmp/payload.json \
-            --max-time 55 "${FULL_URL}" 2>/tmp/curl_debug.txt)
+            --max-time 55 "${FULL_URL}")
 
           echo "HTTP status: ${HTTP_CODE}"
-          echo "--- curl debug (filtered) ---"
-          grep -E '(^[<>*]|redirect|Location:)' /tmp/curl_debug.txt | grep -v 'internal-secret' | head -40
           echo "--- response body ---"
           cat /tmp/response.json | jq . 2>/dev/null || cat /tmp/response.json
           if [ "$HTTP_CODE" -ge 400 ]; then
