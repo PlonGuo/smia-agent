@@ -57,7 +57,11 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
-export default function ParticleSphere() {
+interface ParticleSphereProps {
+  visible: React.RefObject<boolean>;
+}
+
+export default function ParticleSphere({ visible }: ParticleSphereProps) {
   const pointsRef = useRef<THREE.Points>(null);
   const idleAngle = useRef({ x: 0, y: 0 });
   const noise3D = useMemo(() => createNoise3D(), []);
@@ -127,7 +131,7 @@ export default function ParticleSphere() {
   );
 
   useFrame((state) => {
-    if (!pointsRef.current) return;
+    if (!pointsRef.current || !visible.current) return;
 
     const time = state.clock.elapsedTime;
 
