@@ -103,6 +103,30 @@ You are authorized to spawn sub-agents for parallel work when beneficial. Recomm
 - **Keep `logger.error()` for structured logging** alongside `print()` — logger feeds into any log aggregation, print feeds into Vercel's function log viewer.
 - **Traceback on errors**: In except blocks, always capture `traceback.format_exc()` and print it. Truncate to last 500 chars if storing in DB fields.
 
+## Manual Update Email
+
+Send a custom update email to all users (bypasses LLM summarization):
+
+```bash
+INTERNAL_SECRET=$(grep '^INTERNAL_SECRET=' local.env | cut -d= -f2) && \
+curl -s -X POST https://smia-agent.vercel.app/api/internal/notify-update \
+  -H "Content-Type: application/json" \
+  -H "x-internal-secret: $INTERNAL_SECRET" \
+  -d '{
+    "manual_summary": {
+      "headline": "Your Headline Here",
+      "summary": "2-4 sentence summary of changes.",
+      "highlights": [
+        "First highlight",
+        "Second highlight",
+        "Third highlight"
+      ]
+    }
+  }'
+```
+
+Constraints: headline ≤80 chars, summary ≤500 chars, highlights ≤5 items. No URLs or HTML in content.
+
 ## Debugging with Error Logs
 
 - When the user says to debug based on error logs (e.g., "根据 errors log 去 debug", "check the error logs", "debug from errors"), **automatically read `docs/errors/errors-for-debug.md`** first to get the error context before starting any investigation.

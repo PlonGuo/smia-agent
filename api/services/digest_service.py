@@ -1,21 +1,18 @@
-"""Digest orchestrator: lazy trigger, two-phase pipeline, caching, cleanup.
+"""Digest orchestrator: lazy trigger, single-phase pipeline, caching, cleanup.
 
-Architecture: Two-phase pipeline for Vercel Hobby 60s compatibility.
-- Phase 1 (collectors): Run 4 collectors → save to cache → HTTP trigger Phase 2
-- Phase 2 (LLM analysis): Read cached data → analyze → save completed digest
-Each phase gets its own serverless function invocation with a fresh 60s budget.
+Architecture: Single-phase pipeline (Fly.io long-running server).
+- collect all sources → cache results → LLM analysis → save completed digest
+- Runs as asyncio.create_task() from the /today endpoint
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
 import traceback
 from datetime import date, datetime, timedelta, timezone
 
-import httpx
 from langfuse import get_client, observe
 
 from core.config import settings
@@ -89,20 +86,17 @@ def claim_or_get_digest(user_id: str, access_token: str) -> dict:
             }
         return {"status": current_status, "digest_id": row["digest_id"]}
 
-    # We won the race — return immediately, pipeline runs in BackgroundTask
+    # We won the race — return immediately, pipeline runs as background task
     return {"status": "collecting", "digest_id": row["digest_id"], "claimed": True}
 
 
 # ---------------------------------------------------------------------------
-# Phase 1: Collectors (runs in BackgroundTask of /today endpoint)
+# Single-phase digest pipeline
 # ---------------------------------------------------------------------------
 
-@observe(name="run_collectors_phase")
-async def run_collectors_phase(digest_id: str) -> None:
-    """Phase 1: Run all collectors, cache results, trigger Phase 2.
-
-    Runs as BackgroundTask in the /today endpoint's serverless function.
-    """
+@observe(name="run_digest")
+async def run_digest(digest_id: str) -> None:
+    """Run the full digest pipeline: collect → analyze → save → notify."""
     client = get_supabase_client()  # service role
     today = date.today().isoformat()
 
@@ -110,7 +104,7 @@ async def run_collectors_phase(digest_id: str) -> None:
         # Import collectors to trigger registration
         import services.collectors  # noqa: F401
 
-        # Run all collectors in parallel
+        # Phase 1: Collect
         all_items, source_health = await _run_collectors(client, today)
 
         if not all_items:
@@ -121,6 +115,7 @@ async def run_collectors_phase(digest_id: str) -> None:
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }).eq("id", digest_id).execute()
             logger.error("All collectors failed — no items to analyze")
+            print("[DIGEST] All collectors failed — no items to analyze")
             return
 
         # Update status → analyzing
@@ -131,13 +126,71 @@ async def run_collectors_phase(digest_id: str) -> None:
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("id", digest_id).execute()
 
-        # Trigger Phase 2 via internal HTTP call
-        await _trigger_analysis_phase(digest_id)
+        # Phase 2: Analyze
+        print(f"[DIGEST] Analysis starting for digest {digest_id}")
+        trace_metadata(user_id="system:digest", tags=["digest", "analysis"])
+
+        # Pre-flight: check OpenAI API key
+        openai_key = settings.effective_openai_key
+        if not openai_key:
+            raise RuntimeError(
+                "OPENAI_API_KEY is not configured — cannot run LLM analysis. "
+                "Set OPENAI_API_KEY or OPEN_AI_API_KEY in environment variables."
+            )
+        print(f"[DIGEST] OpenAI key present (len={len(openai_key)}, prefix={openai_key[:8]}...)")
+        print(f"[DIGEST] {len(all_items)} items collected, calling LLM...")
+
+        from services.digest_agent import analyze_digest, DIGEST_PROMPT_VERSION
+
+        start = time.time()
+        digest_output = await analyze_digest(all_items)
+        processing_time = int(time.time() - start)
+
+        print(f"[DIGEST] LLM analysis completed in {processing_time}s")
+
+        # Get Langfuse trace ID
+        langfuse_trace_id = None
+        try:
+            langfuse_trace_id = get_client().get_current_trace_id()
+        except Exception:
+            pass
+
+        # Save completed digest
+        client.table("daily_digests").update({
+            "status": "completed",
+            "executive_summary": digest_output.executive_summary,
+            "items": [item.model_dump(mode="json") for item in digest_output.items],
+            "top_highlights": digest_output.top_highlights,
+            "trending_keywords": digest_output.trending_keywords,
+            "category_counts": digest_output.category_counts,
+            "source_counts": digest_output.source_counts,
+            "model_used": "gpt-4.1",
+            "processing_time_seconds": processing_time,
+            "langfuse_trace_id": langfuse_trace_id,
+            "prompt_version": DIGEST_PROMPT_VERSION,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", digest_id).execute()
+
+        # Cleanup old digests (30 days) + expired share tokens
+        _cleanup_old_data(client)
+
+        # Notify via Telegram
+        try:
+            await _notify_telegram(digest_output, len(all_items))
+        except Exception as exc:
+            logger.error("Telegram notification failed: %s", exc)
+
+        flush_langfuse()
+        logger.info("Digest completed: %d items analyzed in %ds",
+                     len(all_items), processing_time)
+        print(f"[DIGEST] Completed successfully: {len(all_items)} items in {processing_time}s")
 
     except Exception as exc:
         tb = traceback.format_exc()
-        logger.error("Collectors phase failed: %s\n%s", exc, tb)
-        error_msg = f"[PHASE1 ERROR] {type(exc).__name__}: {exc}\n\n{tb[-500:]}"
+        logger.error("Digest pipeline failed: %s\n%s", exc, tb)
+        print(f"[DIGEST] FAILED: {type(exc).__name__}: {exc}")
+        print(f"[DIGEST] Traceback:\n{tb}")
+        error_msg = f"[ERROR] {type(exc).__name__}: {exc}\n\n{tb[-500:]}"
         client.table("daily_digests").update({
             "status": "failed",
             "executive_summary": error_msg,
@@ -198,143 +251,6 @@ async def _run_collectors(client, today: str) -> tuple[list[RawCollectorItem], d
                     logger.error("Failed to cache %s results: %s", name, exc)
 
     return all_items, source_health
-
-
-async def _trigger_analysis_phase(digest_id: str) -> None:
-    """Trigger Phase 2 via internal HTTP call to a new serverless function."""
-    app_url = settings.effective_app_url
-
-    if not app_url:
-        # No app_url configured — fall back to running Phase 2 inline
-        logger.warning("No APP_URL or VERCEL_URL configured — running Phase 2 inline")
-        print("[DIGEST] No APP_URL or VERCEL_URL — running Phase 2 inline")
-        await run_analysis_phase(digest_id)
-        return
-
-    try:
-        print(f"[DIGEST] Triggering Phase 2 via {app_url}/api/ai-daily-report/internal/analyze")
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(
-                f"{app_url}/api/ai-daily-report/internal/analyze",
-                json={"digest_id": digest_id},
-                headers={"x-internal-secret": settings.internal_secret},
-            )
-            if resp.status_code != 200:
-                logger.error("Phase 2 trigger failed: %s %s", resp.status_code, resp.text)
-                print(f"[DIGEST] Phase 2 HTTP trigger failed ({resp.status_code}), running inline")
-                await run_analysis_phase(digest_id)
-            else:
-                print(f"[DIGEST] Phase 2 triggered successfully via HTTP")
-    except Exception as exc:
-        logger.error("Phase 2 trigger HTTP failed: %s — running inline", exc)
-        print(f"[DIGEST] Phase 2 HTTP error: {exc} — running inline")
-        await run_analysis_phase(digest_id)
-
-
-# ---------------------------------------------------------------------------
-# Phase 2: LLM Analysis (runs in BackgroundTask of /internal/analyze endpoint)
-# ---------------------------------------------------------------------------
-
-@observe(name="run_analysis_phase")
-async def run_analysis_phase(digest_id: str) -> None:
-    """Phase 2: Read cached collector data, run LLM, save completed digest."""
-    client = get_supabase_client()  # service role
-    today = date.today().isoformat()
-
-    try:
-        print(f"[DIGEST] Phase 2 starting for digest {digest_id}")
-        trace_metadata(user_id="system:digest", tags=["digest", "analysis"])
-
-        # Pre-flight: check OpenAI API key
-        openai_key = settings.effective_openai_key
-        if not openai_key:
-            raise RuntimeError(
-                "OPENAI_API_KEY is not configured — cannot run LLM analysis. "
-                "Set OPENAI_API_KEY or OPEN_AI_API_KEY in Vercel env vars."
-            )
-        print(f"[DIGEST] OpenAI key present (len={len(openai_key)}, prefix={openai_key[:8]}...)")
-
-        # Read collector cache
-        cached = (
-            client.table("digest_collector_cache")
-            .select("source, items")
-            .eq("digest_date", today)
-            .execute()
-        )
-        all_items = []
-        for row in cached.data:
-            for item_data in row["items"]:
-                all_items.append(RawCollectorItem(**item_data))
-
-        if not all_items:
-            client.table("daily_digests").update({
-                "status": "failed",
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }).eq("id", digest_id).execute()
-            logger.error("No cached items found for analysis")
-            print("[DIGEST] Phase 2 failed: no cached items found")
-            return
-
-        print(f"[DIGEST] Phase 2: {len(all_items)} items loaded from cache, calling LLM...")
-
-        # Run LLM analysis
-        from services.digest_agent import analyze_digest, DIGEST_PROMPT_VERSION
-
-        start = time.time()
-        digest_output = await analyze_digest(all_items)
-        processing_time = int(time.time() - start)
-
-        print(f"[DIGEST] LLM analysis completed in {processing_time}s")
-
-        # Get token usage and trace ID
-        langfuse_trace_id = None
-        try:
-            langfuse_trace_id = get_client().get_current_trace_id()
-        except Exception:
-            pass
-
-        # Save completed digest
-        client.table("daily_digests").update({
-            "status": "completed",
-            "executive_summary": digest_output.executive_summary,
-            "items": [item.model_dump(mode="json") for item in digest_output.items],
-            "top_highlights": digest_output.top_highlights,
-            "trending_keywords": digest_output.trending_keywords,
-            "category_counts": digest_output.category_counts,
-            "source_counts": digest_output.source_counts,
-            "model_used": "gpt-4.1",
-            "processing_time_seconds": processing_time,
-            "langfuse_trace_id": langfuse_trace_id,
-            "prompt_version": DIGEST_PROMPT_VERSION,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", digest_id).execute()
-
-        # Cleanup old digests (30 days) + expired share tokens
-        _cleanup_old_data(client)
-
-        # Notify via Telegram
-        try:
-            await _notify_telegram(digest_output, len(all_items))
-        except Exception as exc:
-            logger.error("Telegram notification failed: %s", exc)
-
-        flush_langfuse()
-        logger.info("Digest completed: %d items analyzed in %ds",
-                     len(all_items), processing_time)
-        print(f"[DIGEST] Phase 2 completed successfully: {len(all_items)} items in {processing_time}s")
-
-    except Exception as exc:
-        tb = traceback.format_exc()
-        logger.error("Analysis phase failed: %s\n%s", exc, tb)
-        print(f"[DIGEST] Phase 2 FAILED: {type(exc).__name__}: {exc}")
-        print(f"[DIGEST] Traceback:\n{tb}")
-        # Store error details in executive_summary so we can read it from DB
-        error_msg = f"[ERROR] {type(exc).__name__}: {exc}\n\n{tb[-500:]}"
-        client.table("daily_digests").update({
-            "status": "failed",
-            "executive_summary": error_msg,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", digest_id).execute()
 
 
 # ---------------------------------------------------------------------------

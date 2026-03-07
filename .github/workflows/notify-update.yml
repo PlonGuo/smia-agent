@@ -2,36 +2,35 @@
 name: Notify Users on Deploy
 
 on:
-  deployment_status:
+  workflow_run:
+    workflows: ["Deploy Backend"]
+    types: [completed]
 
 jobs:
   notify:
     name: Send Update Email
     runs-on: ubuntu-latest
-    if: ${{ github.event.deployment_status.state == 'success' && github.event.deployment_status.environment == 'Production' }}
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
     steps:
-      - name: Get commits since last deployment
+      - name: Wait for Vercel frontend deploy
+        run: |
+          echo "Waiting for Vercel to finish deploying frontend..."
+          sleep 60
+
+      - name: Get commits since last notification
         env:
           GH_TOKEN: ${{ github.token }}
-          CURRENT_SHA: ${{ github.event.deployment.sha }}
+          CURRENT_SHA: ${{ github.event.workflow_run.head_sha }}
           REPO: ${{ github.repository }}
         run: |
-          echo "Deployment SHA: ${CURRENT_SHA:0:7}"
-
-          PREV_SHA=$(gh api "/repos/${REPO}/deployments?environment=Production&per_page=10" \
-            --jq "[.[] | select(.sha != \"${CURRENT_SHA}\")] | .[0].sha // empty")
-
-          if [ -n "$PREV_SHA" ]; then
-            echo "Comparing ${PREV_SHA:0:7}...${CURRENT_SHA:0:7}"
-            gh api "/repos/${REPO}/compare/${PREV_SHA}...${CURRENT_SHA}" \
-              --jq '{commits: [.commits[] | {id: .sha, message: (.commit.message // ""), author: (.commit.author.name // "unknown"), url: (.html_url // "")}]}' \
-              > /tmp/payload.json
-          else
-            echo "No previous deployment found, using single commit"
-            gh api "/repos/${REPO}/commits/${CURRENT_SHA}" \
-              --jq '{commits: [{id: .sha, message: (.commit.message // ""), author: (.commit.author.name // "unknown"), url: (.html_url // "")}]}' \
-              > /tmp/payload.json
-          fi
+          # Get the previous commit before this push
+          PREV_SHA=$(gh api "/repos/${REPO}/commits?sha=${CURRENT_SHA}&per_page=2" --jq '.[1].sha')
+          echo "Comparing ${PREV_SHA:0:7}...${CURRENT_SHA:0:7}"
+          gh api "/repos/${REPO}/compare/${PREV_SHA}...${CURRENT_SHA}" \
+            --jq '{commits: [.commits[] | {id: .sha, message: (.commit.message // ""), author: (.commit.author.name // "unknown"), url: (.html_url // "")}]}' \
+            > /tmp/payload.json
 
       - name: Send notification to backend
         uses: actions/github-script@v7

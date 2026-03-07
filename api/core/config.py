@@ -12,8 +12,11 @@ def _detect_environment() -> str:
     vercel_env = os.environ.get("VERCEL_ENV", "")
     if vercel_env:
         return vercel_env  # "production" or "preview"
-    if os.environ.get("VERCEL"):
-        return "vercel-dev"
+    fly_app = os.environ.get("FLY_APP_NAME", "")
+    if fly_app == "smia-agent":
+        return "production"
+    if fly_app:  # smia-agent-dev or any other Fly app = staging
+        return "preview"
     return "development"
 
 
