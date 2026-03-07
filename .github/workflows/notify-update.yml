@@ -1,29 +1,29 @@
 name: Notify Users on Deploy
 
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["Deploy Backend"]
+    types: [completed]
 
 jobs:
   notify:
     name: Send Update Email
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - name: Wait for Fly.io deploy and verify
+      - name: Wait for Vercel frontend deploy
         run: |
-          for i in $(seq 1 6); do
-            curl -sf https://smia-agent.fly.dev/api/health && exit 0
-            sleep 10
-          done
-          exit 1
+          echo "Waiting for Vercel to finish deploying frontend..."
+          sleep 60
 
       - name: Get commits since last notification
         env:
           GH_TOKEN: ${{ github.token }}
-          CURRENT_SHA: ${{ github.sha }}
-          PREV_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.event.workflow_run.head_sha }}
           REPO: ${{ github.repository }}
         run: |
+          # Get the previous commit before this push
+          PREV_SHA=$(gh api "/repos/${REPO}/commits?sha=${CURRENT_SHA}&per_page=2" --jq '.[1].sha')
           echo "Comparing ${PREV_SHA:0:7}...${CURRENT_SHA:0:7}"
           gh api "/repos/${REPO}/compare/${PREV_SHA}...${CURRENT_SHA}" \
             --jq '{commits: [.commits[] | {id: .sha, message: (.commit.message // ""), author: (.commit.author.name // "unknown"), url: (.html_url // "")}]}' \
