@@ -20,6 +20,13 @@ def _make_update(text: str, user_id: int = 12345, chat_id: int = 12345) -> dict:
     }
 
 
+@pytest.fixture(autouse=True)
+def _disable_webhook_secret(monkeypatch):
+    """Disable Telegram webhook secret verification in tests."""
+    from core.config import settings
+    monkeypatch.setattr(settings, "telegram_webhook_secret", "")
+
+
 class TestTelegramWebhook:
     @pytest.mark.asyncio
     async def test_returns_ok(self, client):
