@@ -26,13 +26,27 @@ MOCK_SUMMARY = UpdateSummary(
 
 class TestNotifyUpdate:
     @pytest.mark.anyio
+    async def test_rejects_unconfigured_secret(self, client):
+        """When internal_secret is not configured, returns 503."""
+        with patch("routes.internal.settings") as mock_settings:
+            mock_settings.internal_secret = ""
+            resp = await client.post(
+                "/api/internal/notify-update",
+                json={"commits": SAMPLE_COMMITS},
+                headers={"x-internal-secret": "any-secret"},
+            )
+            assert resp.status_code == 503
+
+    @pytest.mark.anyio
     async def test_rejects_bad_secret(self, client):
-        resp = await client.post(
-            "/api/internal/notify-update",
-            json={"commits": SAMPLE_COMMITS},
-            headers={"x-internal-secret": "wrong-secret"},
-        )
-        assert resp.status_code == 403
+        with patch("routes.internal.settings") as mock_settings:
+            mock_settings.internal_secret = "correct-secret"
+            resp = await client.post(
+                "/api/internal/notify-update",
+                json={"commits": SAMPLE_COMMITS},
+                headers={"x-internal-secret": "wrong-secret"},
+            )
+            assert resp.status_code == 403
 
     @pytest.mark.anyio
     async def test_skips_when_no_commits(self, client):

@@ -2,7 +2,7 @@
 
 import pytest
 import pytest_asyncio
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from datetime import datetime, timedelta, timezone
 
 import sys
@@ -41,8 +41,7 @@ class TestGetTodayDigest:
                  "status": "completed",
                  "digest_id": "d-1",
                  "digest": {"executive_summary": "Test"},
-             }), \
-             patch("routes.ai_daily_report.run_collectors_phase"):
+             }):
             resp = await authed_client.get("/api/ai-daily-report/today")
             assert resp.status_code == 200
             data = resp.json()
@@ -57,7 +56,7 @@ class TestGetTodayDigest:
                  "digest_id": "d-2",
                  "claimed": True,
              }), \
-             patch("routes.ai_daily_report.run_collectors_phase"):
+             patch("routes.ai_daily_report.run_digest", new_callable=AsyncMock):
             resp = await authed_client.get("/api/ai-daily-report/today")
             assert resp.status_code == 200
             assert resp.json()["claimed"] is True
@@ -110,27 +109,3 @@ class TestSharedDigest:
         with patch("routes.ai_daily_report.get_supabase_client", return_value=mock_client):
             resp = await authed_client.get("/api/ai-daily-report/shared/invalid-token")
             assert resp.status_code == 404
-
-
-class TestInternalAnalyze:
-    @pytest.mark.asyncio
-    async def test_rejects_bad_secret(self, authed_client):
-        resp = await authed_client.post(
-            "/api/ai-daily-report/internal/analyze",
-            json={"digest_id": "d-1"},
-            headers={"x-internal-secret": "wrong-secret"},
-        )
-        assert resp.status_code == 403
-
-    @pytest.mark.asyncio
-    async def test_accepts_valid_secret(self, authed_client):
-        with patch("routes.ai_daily_report.settings") as mock_settings, \
-             patch("routes.ai_daily_report.run_analysis_phase"):
-            mock_settings.internal_secret = "test-secret"
-            resp = await authed_client.post(
-                "/api/ai-daily-report/internal/analyze",
-                json={"digest_id": "d-1"},
-                headers={"x-internal-secret": "test-secret"},
-            )
-            assert resp.status_code == 200
-            assert resp.json()["status"] == "accepted"
