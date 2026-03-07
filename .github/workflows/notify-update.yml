@@ -23,12 +23,12 @@ jobs:
           if [ -n "$PREV_SHA" ]; then
             echo "Comparing ${PREV_SHA:0:7}...${CURRENT_SHA:0:7}"
             gh api "/repos/${REPO}/compare/${PREV_SHA}...${CURRENT_SHA}" \
-              --jq '{commits: [.commits[] | {id: .sha, message: .commit.message, author: .commit.author.name, url: .html_url}]}' \
+              --jq '{commits: [.commits[] | {id: .sha, message: (.commit.message // ""), author: (.commit.author.name // "unknown"), url: (.html_url // "")}]}' \
               > /tmp/payload.json
           else
             echo "No previous deployment found, using single commit"
             gh api "/repos/${REPO}/commits/${CURRENT_SHA}" \
-              --jq '{commits: [{id: .sha, message: .commit.message, author: .commit.author.name, url: .html_url}]}' \
+              --jq '{commits: [{id: .sha, message: (.commit.message // ""), author: (.commit.author.name // "unknown"), url: (.html_url // "")}]}' \
               > /tmp/payload.json
           fi
 
@@ -37,6 +37,8 @@ jobs:
           API_URL: ${{ secrets.SMIA_API_URL }}
           INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
         run: |
+          echo "Payload:"
+          cat /tmp/payload.json | jq .
           COMMIT_COUNT=$(jq '.commits | length' /tmp/payload.json)
           echo "Sending notification with ${COMMIT_COUNT} commits"
 
