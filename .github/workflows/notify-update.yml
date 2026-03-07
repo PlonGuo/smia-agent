@@ -12,26 +12,25 @@ jobs:
       - name: Get commits since last deployment
         env:
           GH_TOKEN: ${{ github.token }}
+          CURRENT_SHA: ${{ github.event.deployment.sha }}
+          REPO: ${{ github.repository }}
         run: |
-          CURRENT_SHA="${{ github.event.deployment.sha }}"
-          REPO="${{ github.repository }}"
+          echo "Deployment SHA: ${CURRENT_SHA:0:7}"
 
-          # Find previous successful production deployment SHA
           PREV_SHA=$(gh api "/repos/${REPO}/deployments?environment=Production&per_page=10" \
             --jq "[.[] | select(.sha != \"${CURRENT_SHA}\")] | .[0].sha // empty")
 
           if [ -n "$PREV_SHA" ]; then
             echo "Comparing ${PREV_SHA:0:7}...${CURRENT_SHA:0:7}"
-            COMMITS=$(gh api "/repos/${REPO}/compare/${PREV_SHA}...${CURRENT_SHA}" \
-              --jq '{commits: [.commits[] | {id: .sha, message: .commit.message, author: .commit.author.name, url: .html_url}]}')
+            gh api "/repos/${REPO}/compare/${PREV_SHA}...${CURRENT_SHA}" \
+              --jq '{commits: [.commits[] | {id: .sha, message: .commit.message, author: .commit.author.name, url: .html_url}]}' \
+              > /tmp/payload.json
           else
             echo "No previous deployment found, using single commit"
-            COMMITS=$(gh api "/repos/${REPO}/commits/${CURRENT_SHA}" \
-              --jq '{commits: [{id: .sha, message: .commit.message, author: .commit.author.name, url: .html_url}]}')
+            gh api "/repos/${REPO}/commits/${CURRENT_SHA}" \
+              --jq '{commits: [{id: .sha, message: .commit.message, author: .commit.author.name, url: .html_url}]}' \
+              > /tmp/payload.json
           fi
-
-          # SECURITY: Write to file, never interpolate untrusted data in ${{ }}
-          echo "$COMMITS" > /tmp/payload.json
 
       - name: Send notification to backend
         env:
