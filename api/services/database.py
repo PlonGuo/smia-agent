@@ -376,6 +376,29 @@ def get_all_admin_emails() -> list[str]:
         return []
 
 
+def get_all_user_emails() -> list[str]:
+    """Fetch all registered user emails from Supabase Auth (service role).
+
+    Handles pagination (1000 users per page).
+    """
+    client = get_supabase_client()  # service role
+    emails: list[str] = []
+    page = 1
+    per_page = 1000
+    try:
+        while True:
+            users = client.auth.admin.list_users(page=page, per_page=per_page)
+            for u in users:
+                if u.email:
+                    emails.append(u.email)
+            if len(users) < per_page:
+                break
+            page += 1
+    except Exception as exc:
+        logger.error("Failed to list user emails: %s", exc)
+    return emails
+
+
 def seed_admin_if_empty() -> None:
     """Bootstrap: if admins table is empty, seed with ADMIN_EMAIL. Idempotent."""
     if not settings.admin_email:

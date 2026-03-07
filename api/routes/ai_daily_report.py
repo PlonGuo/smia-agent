@@ -11,13 +11,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from core.auth import AuthenticatedUser, get_current_user
 from core.config import settings
 from models.digest_schemas import AccessRequestCreate
-from services.database import (
-    get_digest_access_status,
-    get_all_admin_emails,
-    get_supabase_client,
-)
+from services.database import get_supabase_client
 from services.digest_service import claim_or_get_digest, run_analysis_phase, run_collectors_phase
-from services.email_service import send_access_request_notification
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +34,6 @@ async def get_today_digest(
     Returns FAST. If we claimed the lock, the collectors pipeline runs as a
     BackgroundTask so we don't block the HTTP response.
     """
-    access = get_digest_access_status(user.user_id, user.access_token)
-    if access not in ("admin", "approved"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Access status: {access}",
-        )
-
     result = claim_or_get_digest(user.user_id, user.access_token)
 
     if result.get("claimed"):
@@ -58,9 +46,12 @@ async def get_today_digest(
 async def get_access_status(
     user: AuthenticatedUser = Depends(get_current_user),
 ):
-    """Return current user's digest access status."""
-    access = get_digest_access_status(user.user_id, user.access_token)
-    return {"access": access}
+    """Return current user's digest access status.
+
+    With open access, all authenticated users are treated as approved.
+    Kept for backward compatibility with frontend.
+    """
+    return {"access": "approved"}
 
 
 @router.get("/list")
@@ -69,11 +60,7 @@ async def list_digests(
     per_page: int = Query(20, ge=1, le=100),
     user: AuthenticatedUser = Depends(get_current_user),
 ):
-    """List past digests (last 30 days). Requires digest access."""
-    access = get_digest_access_status(user.user_id, user.access_token)
-    if access not in ("admin", "approved"):
-        raise HTTPException(status_code=403, detail=f"Access status: {access}")
-
+    """List past digests (last 30 days)."""
     client = get_supabase_client()
     offset = (page - 1) * per_page
 
@@ -136,11 +123,7 @@ async def get_digest(
     digest_id: str,
     user: AuthenticatedUser = Depends(get_current_user),
 ):
-    """Get specific digest by ID. Requires digest access."""
-    access = get_digest_access_status(user.user_id, user.access_token)
-    if access not in ("admin", "approved"):
-        raise HTTPException(status_code=403, detail=f"Access status: {access}")
-
+    """Get specific digest by ID."""
     client = get_supabase_client()
     resp = (
         client.table("daily_digests")
@@ -165,34 +148,12 @@ async def request_access(
     body: AccessRequestCreate,
     user: AuthenticatedUser = Depends(get_current_user),
 ):
-    """Submit a digest access request."""
-    # Check if already authorized
-    access = get_digest_access_status(user.user_id, user.access_token)
-    if access in ("admin", "approved"):
-        return {"status": "already_authorized", "access": access}
+    """Submit a digest access request.
 
-    if access == "pending":
-        return {"status": "already_pending"}
-
-    client = get_supabase_client()
-
-    # Create request
-    client.table("digest_access_requests").insert({
-        "user_id": user.user_id,
-        "email": body.email,
-        "reason": body.reason,
-        "status": "pending",
-    }).execute()
-
-    # Notify admins
-    admin_emails = get_all_admin_emails()
-    for email in admin_emails:
-        try:
-            send_access_request_notification(email, body.email, body.reason)
-        except Exception as exc:
-            logger.error("Failed to email admin %s: %s", email, exc)
-
-    return {"status": "pending"}
+    With open access, all authenticated users are already authorized.
+    Kept for backward compatibility.
+    """
+    return {"status": "already_authorized", "access": "approved"}
 
 
 # ---------------------------------------------------------------------------
@@ -206,10 +167,6 @@ async def create_share_token(
     user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Generate a shareable link for a digest."""
-    access = get_digest_access_status(user.user_id, user.access_token)
-    if access not in ("admin", "approved"):
-        raise HTTPException(status_code=403, detail=f"Access status: {access}")
-
     token = uuid.uuid4().hex[:16]
     expires_at = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
 
@@ -244,7 +201,8 @@ async def internal_analyze(
     gets a fast 200 response (caller has 10s timeout, LLM takes 20-30s).
     """
     secret = request.headers.get("x-internal-secret", "")
-    if secret != settings.internal_secret:
+    if not settings.internal_secret or secret != settings.internal_secret:
+        print("[INTERNAL/ANALYZE] Auth failed: secret not configured or mismatch")
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     digest_id = body.get("digest_id")
@@ -267,8 +225,8 @@ async def internal_collect(
     """
     print(f"[INTERNAL/COLLECT] Received request, body={body}")
     secret = request.headers.get("x-internal-secret", "")
-    if secret != settings.internal_secret:
-        print("[INTERNAL/COLLECT] Auth failed: secret mismatch")
+    if not settings.internal_secret or secret != settings.internal_secret:
+        print("[INTERNAL/COLLECT] Auth failed: secret not configured or mismatch")
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     digest_id = body.get("digest_id")

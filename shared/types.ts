@@ -47,6 +47,13 @@ export interface AnalyzeResponse {
   report: TrendReport;
   message: string;
   cached: boolean;
+  remaining?: number;
+}
+
+export interface QuotaResponse {
+  daily_limit: number;
+  remaining: number;
+  resets_at: string;
 }
 
 export interface ReportsListResponse {

@@ -45,6 +45,13 @@ class AnalyzeResponse(BaseModel):
     report: TrendReport
     message: str = "Analysis complete"
     cached: bool = False
+    remaining: int | None = None
+
+
+class QuotaResponse(BaseModel):
+    daily_limit: int
+    remaining: int
+    resets_at: str
 
 
 class ReportsListResponse(BaseModel):

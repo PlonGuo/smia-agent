@@ -299,13 +299,13 @@ async def handle_analyze(
     # Rate limit check
     from core.rate_limit import check_rate_limit
 
-    allowed, remaining = check_rate_limit(user_id, source="telegram")
+    allowed, remaining = check_rate_limit(user_id)
     if not allowed:
         await send_message(
             chat_id,
             format_error(
-                "You've reached the hourly limit (10 analyses). "
-                "Try again later."
+                "You've reached the daily limit (5 analyses). "
+                "Try again tomorrow."
             ),
         )
         return

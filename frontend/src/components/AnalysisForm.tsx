@@ -6,6 +6,9 @@ import type { TimeRange } from '../../../shared/types';
 interface AnalysisFormProps {
   onSubmit: (query: string, timeRange: TimeRange) => void;
   loading: boolean;
+  remaining: number | null;
+  dailyLimit: number;
+  resetsAt: string | null;
 }
 
 const TIME_RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
@@ -15,7 +18,11 @@ const TIME_RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
   { value: 'year', label: 'Past year' },
 ];
 
-export default function AnalysisForm({ onSubmit, loading }: AnalysisFormProps) {
+export default function AnalysisForm({ onSubmit, loading, remaining, dailyLimit, resetsAt }: AnalysisFormProps) {
+  const quotaExhausted = remaining !== null && remaining <= 0;
+  const resetTimeLocal = resetsAt
+    ? new Date(resetsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null;
   const [query, setQuery] = useState('');
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
   const [error, setError] = useState('');
@@ -114,13 +121,24 @@ export default function AnalysisForm({ onSubmit, loading }: AnalysisFormProps) {
             size="lg"
             loading={loading}
             loadingText="Analyzing..."
-            disabled={loading}
+            disabled={loading || quotaExhausted}
             style={{ height: '50px' }}
           >
             <Search size={18} />
-            Analyze
+            {quotaExhausted ? 'Limit Reached' : 'Analyze'}
           </Button>
         </div>
+
+        {/* Quota display */}
+        {remaining !== null && (
+          <div style={{ textAlign: 'right', marginTop: '8px' }}>
+            <span style={{ fontSize: '13px', color: quotaExhausted ? 'var(--chakra-colors-red-400, #f56565)' : 'var(--chakra-colors-fg-muted, #888)' }}>
+              {quotaExhausted
+                ? `Daily limit reached${resetTimeLocal ? `. Resets at ${resetTimeLocal}` : ''}`
+                : `${remaining}/${dailyLimit} analyses remaining today`}
+            </span>
+          </div>
+        )}
       </Box>
     </form>
   );

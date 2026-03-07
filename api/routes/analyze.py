@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import logging
 import traceback
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from langfuse import observe
 
 from core.auth import AuthenticatedUser, get_current_user
-from core.rate_limit import check_rate_limit
-from models.schemas import AnalyzeRequest, AnalyzeResponse
+from core.rate_limit import DAILY_LIMIT, check_rate_limit
+from models.schemas import AnalyzeRequest, AnalyzeResponse, QuotaResponse
 from services.agent import analyze_topic
 from services.database import save_report
 
@@ -35,11 +36,11 @@ async def analyze(
     Supports time_range (day/week/month/year) and force_refresh params.
     """
     # Rate limit check
-    allowed, remaining = check_rate_limit(user.user_id, source="web")
+    allowed, remaining = check_rate_limit(user.user_id)
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Rate limit exceeded. You can perform 100 analyses per hour.",
+            detail="Rate limit exceeded. You can perform 5 analyses per day.",
         )
 
     try:
@@ -64,11 +65,32 @@ async def analyze(
             except Exception as save_exc:
                 logger.error("Failed to save report: %s", save_exc)
 
-        return AnalyzeResponse(report=report, cached=cached)
+        post_remaining = remaining if cached else remaining - 1
+        return AnalyzeResponse(report=report, cached=cached, remaining=post_remaining)
     except Exception as exc:
         tb = traceback.format_exc()
         logger.error("Analysis failed for query '%s': %s\n%s", body.query, exc, tb)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Analysis failed: {type(exc).__name__}: {exc}",
+            detail="Analysis failed. Please try again later.",
         ) from exc
+
+
+def _next_utc_midnight() -> str:
+    """Return ISO timestamp for the start of the next UTC day."""
+    now = datetime.now(timezone.utc)
+    tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return tomorrow.isoformat()
+
+
+@router.get("/analyze/quota", response_model=QuotaResponse)
+async def get_quota(
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> QuotaResponse:
+    """Return the user's remaining daily analysis quota."""
+    _, remaining = check_rate_limit(user.user_id)
+    return QuotaResponse(
+        daily_limit=DAILY_LIMIT,
+        remaining=remaining,
+        resets_at=_next_utc_midnight(),
+    )
