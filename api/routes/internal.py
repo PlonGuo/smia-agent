@@ -28,39 +28,44 @@ async def notify_update(request: Request, body: NotifyUpdateRequest):
         print("[INTERNAL/NOTIFY-UPDATE] Auth failed: secret mismatch")
         raise HTTPException(status_code=403, detail="Unauthorized")
 
-    commits_raw = [c.model_dump() for c in body.commits]
-    if not commits_raw:
-        print("[INTERNAL/NOTIFY-UPDATE] No commits provided")
-        return {"status": "skipped", "reason": "no commits"}
+    # Manual summary mode: use provided content directly
+    if body.manual_summary:
+        summary = body.manual_summary
+        print(f"[INTERNAL/NOTIFY-UPDATE] Using manual summary: {summary.headline}")
+    else:
+        commits_raw = [c.model_dump() for c in body.commits]
+        if not commits_raw:
+            print("[INTERNAL/NOTIFY-UPDATE] No commits provided")
+            return {"status": "skipped", "reason": "no commits"}
 
-    # Filter noise commits
-    meaningful = _filter_commits(commits_raw)
-    if not meaningful:
-        print("[INTERNAL/NOTIFY-UPDATE] All commits filtered as noise")
-        return {"status": "skipped", "reason": "no meaningful commits"}
+        # Filter noise commits
+        meaningful = _filter_commits(commits_raw)
+        if not meaningful:
+            print("[INTERNAL/NOTIFY-UPDATE] All commits filtered as noise")
+            return {"status": "skipped", "reason": "no meaningful commits"}
+
+        # Generate AI summary with fallback
+        try:
+            summary = await summarize_commits(meaningful)
+            print(f"[INTERNAL/NOTIFY-UPDATE] LLM summary: {summary.headline}")
+        except Exception as exc:
+            print(f"[INTERNAL/NOTIFY-UPDATE] LLM failed, using fallback: {exc}")
+            print(f"[INTERNAL/NOTIFY-UPDATE] {traceback.format_exc()[-500:]}")
+            first_msg = meaningful[0].get("message", "").split("\n", 1)[0]
+            summary = UpdateSummary(
+                headline=first_msg[:80],
+                summary=f"The platform has been updated with {len(meaningful)} changes.",
+                highlights=[
+                    c.get("message", "").split("\n", 1)[0]
+                    for c in meaningful[:5]
+                ],
+            )
 
     emails = get_all_user_emails()
     print(f"[INTERNAL/NOTIFY-UPDATE] Found {len(emails)} user emails")
 
     if not emails:
         return {"status": "skipped", "reason": "no users found"}
-
-    # Generate AI summary with fallback
-    try:
-        summary = await summarize_commits(meaningful)
-        print(f"[INTERNAL/NOTIFY-UPDATE] LLM summary: {summary.headline}")
-    except Exception as exc:
-        print(f"[INTERNAL/NOTIFY-UPDATE] LLM failed, using fallback: {exc}")
-        print(f"[INTERNAL/NOTIFY-UPDATE] {traceback.format_exc()[-500:]}")
-        first_msg = meaningful[0].get("message", "").split("\n", 1)[0]
-        summary = UpdateSummary(
-            headline=first_msg[:80],
-            summary=f"The platform has been updated with {len(meaningful)} changes.",
-            highlights=[
-                c.get("message", "").split("\n", 1)[0]
-                for c in meaningful[:5]
-            ],
-        )
 
     sent = send_update_notification(summary, emails)
     elapsed_ms = int((time.time() - t0) * 1000)
