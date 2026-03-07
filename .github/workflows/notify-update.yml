@@ -48,12 +48,12 @@ jobs:
           FULL_URL="${CLEAN_URL}/api/internal/notify-update"
           echo "Target URL: ${FULL_URL}"
 
-          # Force HTTP/1.1 to avoid potential HTTP/2 body issues
+          # Read payload into variable and send as inline data
+          PAYLOAD=$(cat /tmp/payload.json)
           HTTP_CODE=$(curl -s -o /tmp/response.json -w "%{http_code}" \
-            --http1.1 \
             -H "Content-Type: application/json" \
             -H "x-internal-secret: ${INTERNAL_SECRET}" \
-            -d @/tmp/payload.json \
+            --data-binary "$PAYLOAD" \
             --max-time 55 "${FULL_URL}")
 
           echo "HTTP status: ${HTTP_CODE}"
