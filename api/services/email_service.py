@@ -126,7 +126,7 @@ def send_update_notification(
         for h in summary.highlights
     )
 
-    subject = f"SmIA Update: {safe_headline}"
+    subject = f"SmIA Update: {summary.headline}"
     if len(subject) > 78:
         subject = subject[:75] + "..."
 
