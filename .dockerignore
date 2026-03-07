@@ -1,0 +1,8 @@
+frontend/
+node_modules/
+.git/
+screen-shot/
+__pycache__/
+*.pyc
+.env
+local.env

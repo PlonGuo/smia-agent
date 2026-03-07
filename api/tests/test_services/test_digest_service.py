@@ -189,67 +189,6 @@ class TestRunCollectors:
             assert "failed" in health["broken"]
 
 
-class TestTriggerAnalysisPhase:
-    @pytest.mark.asyncio
-    async def test_no_app_url_falls_back_inline(self):
-        """Without APP_URL, Phase 2 runs inline."""
-        with patch("services.digest_service.settings") as mock_settings, \
-             patch("services.digest_service.run_analysis_phase", new_callable=AsyncMock) as mock_phase2:
-            mock_settings.app_url = ""
-            mock_settings.internal_secret = "test-secret"
-
-            from services.digest_service import _trigger_analysis_phase
-            await _trigger_analysis_phase("d-123")
-
-            mock_phase2.assert_called_once_with("d-123")
-
-    @pytest.mark.asyncio
-    async def test_http_trigger_success(self):
-        """With APP_URL, triggers Phase 2 via HTTP."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_client = AsyncMock()
-        mock_client.post = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("services.digest_service.settings") as mock_settings, \
-             patch("services.digest_service.httpx.AsyncClient", return_value=mock_client), \
-             patch("services.digest_service.run_analysis_phase", new_callable=AsyncMock) as mock_phase2:
-            mock_settings.app_url = "https://example.com"
-            mock_settings.internal_secret = "test-secret"
-
-            from services.digest_service import _trigger_analysis_phase
-            await _trigger_analysis_phase("d-123")
-
-            mock_client.post.assert_called_once()
-            # Phase 2 should NOT run inline if HTTP succeeds
-            mock_phase2.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_http_failure_falls_back(self):
-        """HTTP failure falls back to inline Phase 2."""
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-        mock_response.text = "Internal Server Error"
-        mock_client = AsyncMock()
-        mock_client.post = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("services.digest_service.settings") as mock_settings, \
-             patch("services.digest_service.httpx.AsyncClient", return_value=mock_client), \
-             patch("services.digest_service.run_analysis_phase", new_callable=AsyncMock) as mock_phase2:
-            mock_settings.app_url = "https://example.com"
-            mock_settings.internal_secret = "test-secret"
-
-            from services.digest_service import _trigger_analysis_phase
-            await _trigger_analysis_phase("d-123")
-
-            # Should fall back to inline
-            mock_phase2.assert_called_once_with("d-123")
-
-
 class TestCleanupOldData:
     def test_cleanup_runs_without_error(self):
         mock_client = MagicMock()

@@ -2,21 +2,31 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from core.auth import AuthenticatedUser, get_current_user
 from core.config import settings
 from models.digest_schemas import AccessRequestCreate
 from services.database import get_supabase_client
-from services.digest_service import claim_or_get_digest, run_analysis_phase, run_collectors_phase
+from services.digest_service import claim_or_get_digest, run_digest
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/ai-daily-report", tags=["ai-daily-report"])
+
+# Background task tracking — prevents GC and logs errors
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _task_done(task: asyncio.Task) -> None:
+    _background_tasks.discard(task)
+    if not task.cancelled() and task.exception():
+        logger.error("Background digest failed: %s", task.exception(), exc_info=task.exception())
 
 
 # ---------------------------------------------------------------------------
@@ -26,18 +36,19 @@ router = APIRouter(prefix="/api/ai-daily-report", tags=["ai-daily-report"])
 
 @router.get("/today")
 async def get_today_digest(
-    background_tasks: BackgroundTasks,
     user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Main endpoint: check permission, claim/return digest.
 
-    Returns FAST. If we claimed the lock, the collectors pipeline runs as a
-    BackgroundTask so we don't block the HTTP response.
+    Returns FAST. If we claimed the lock, the digest pipeline runs as a
+    background asyncio task so we don't block the HTTP response.
     """
     result = claim_or_get_digest(user.user_id, user.access_token)
 
     if result.get("claimed"):
-        background_tasks.add_task(run_collectors_phase, result["digest_id"])
+        task = asyncio.create_task(run_digest(result["digest_id"]))
+        _background_tasks.add(task)
+        task.add_done_callback(_task_done)
 
     return result
 
@@ -178,62 +189,7 @@ async def create_share_token(
         "expires_at": expires_at,
     }).execute()
 
-    app_url = (settings.app_url or "").rstrip("/")
+    app_url = settings.effective_app_url
     share_url = f"{app_url}/ai-daily-report/shared/{token}"
 
     return {"token": token, "url": share_url, "expires_at": expires_at}
-
-
-# ---------------------------------------------------------------------------
-# Internal: Phase 2 trigger (two-phase pipeline)
-# ---------------------------------------------------------------------------
-
-
-@router.post("/internal/analyze")
-async def internal_analyze(
-    request: Request,
-    body: dict,
-    background_tasks: BackgroundTasks,
-):
-    """Internal endpoint: triggered by Phase 1 to start Phase 2 (LLM analysis).
-
-    Secured by x-internal-secret header. Uses BackgroundTask so the caller
-    gets a fast 200 response (caller has 10s timeout, LLM takes 20-30s).
-    """
-    secret = request.headers.get("x-internal-secret", "")
-    if not settings.internal_secret or secret != settings.internal_secret:
-        print("[INTERNAL/ANALYZE] Auth failed: secret not configured or mismatch")
-        raise HTTPException(status_code=403, detail="Unauthorized")
-
-    digest_id = body.get("digest_id")
-    if not digest_id:
-        raise HTTPException(status_code=400, detail="Missing digest_id")
-
-    print(f"[INTERNAL/ANALYZE] Queuing analysis for digest_id={digest_id}")
-    background_tasks.add_task(run_analysis_phase, digest_id)
-    return {"status": "accepted", "digest_id": digest_id}
-
-
-@router.post("/internal/collect")
-async def internal_collect(
-    request: Request,
-    body: dict,
-):
-    """Internal endpoint: trigger Phase 1 (collectors) in a fresh function invocation.
-
-    Runs synchronously so the work completes before Vercel kills the function.
-    """
-    print(f"[INTERNAL/COLLECT] Received request, body={body}")
-    secret = request.headers.get("x-internal-secret", "")
-    if not settings.internal_secret or secret != settings.internal_secret:
-        print("[INTERNAL/COLLECT] Auth failed: secret not configured or mismatch")
-        raise HTTPException(status_code=403, detail="Unauthorized")
-
-    digest_id = body.get("digest_id")
-    if not digest_id:
-        raise HTTPException(status_code=400, detail="Missing digest_id")
-
-    print(f"[INTERNAL/COLLECT] Running collectors for digest_id={digest_id}")
-    await run_collectors_phase(digest_id)
-    print(f"[INTERNAL/COLLECT] Collectors completed for digest_id={digest_id}")
-    return {"status": "completed", "digest_id": digest_id}
