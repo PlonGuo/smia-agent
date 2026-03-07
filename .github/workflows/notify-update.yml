@@ -7,9 +7,7 @@ jobs:
   notify:
     name: Send Update Email
     runs-on: ubuntu-latest
-    if: >-
-      github.event.deployment_status.state == 'success' &&
-      github.event.deployment_status.environment == 'Production'
+    if: ${{ github.event.deployment_status.state == 'success' && github.event.deployment_status.environment == 'Production' }}
     steps:
       - name: Get commits since last deployment
         env:
