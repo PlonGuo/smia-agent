@@ -2,11 +2,12 @@ name: Deploy Backend
 
 on:
   push:
-    branches: [main]
+    branches: [main, development]
 
 jobs:
-  deploy:
-    name: Deploy to Fly.io
+  deploy-production:
+    name: Deploy to Fly.io (Production)
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,6 +23,31 @@ jobs:
         run: |
           for i in $(seq 1 6); do
             curl -sf https://smia-agent.fly.dev/api/health && exit 0
+            sleep 10
+          done
+          exit 1
+
+  deploy-staging:
+    name: Deploy to Fly.io (Staging)
+    if: github.ref == 'refs/heads/development'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: staging-deploy
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only --app smia-agent-dev
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_DEV }}
+
+      - name: Verify health
+        run: |
+          for i in $(seq 1 6); do
+            curl -sf https://smia-agent-dev.fly.dev/api/health && exit 0
             sleep 10
           done
           exit 1
