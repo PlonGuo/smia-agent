@@ -10,16 +10,15 @@ const MotionHeading = motion.create(Heading);
 const MotionText = motion.create(Text);
 
 interface TutorialSlide {
-  number: string;
   icon: LucideIcon;
   title: string;
   steps: string[];
   mockupLabel: string;
+  image: string;
 }
 
 const slides: TutorialSlide[] = [
   {
-    number: '01',
     icon: Search,
     title: 'Analyze a Topic',
     steps: [
@@ -28,9 +27,9 @@ const slides: TutorialSlide[] = [
       'Get a structured intelligence report with sentiment analysis',
     ],
     mockupLabel: 'Analysis Report',
+    image: '/images/analyze.png',
   },
   {
-    number: '02',
     icon: Newspaper,
     title: 'AI Daily Digest',
     steps: [
@@ -39,9 +38,9 @@ const slides: TutorialSlide[] = [
       'Share or export the digest as an image',
     ],
     mockupLabel: 'Daily Digest',
+    image: '/images/digest.png',
   },
   {
-    number: '03',
     icon: Send,
     title: 'Connect Telegram',
     steps: [
@@ -50,13 +49,20 @@ const slides: TutorialSlide[] = [
       'Get analysis and digests delivered straight to Telegram',
     ],
     mockupLabel: 'Telegram Bot',
+    image: '/images/telegram.png',
   },
 ];
 
 export default function TutorialSection() {
   return (
-    <Box as="section" aria-labelledby="tutorial-heading" bg="black" py={{ base: 16, md: 24 }}>
-      <Box maxW="6xl" mx="auto" px={{ base: 6, md: 12 }}>
+    <Box
+      as="section"
+      aria-labelledby="tutorial-heading"
+      bg="transparent"
+      py={{ base: 16, md: 24 }}
+      position="relative"
+    >
+      <Box maxW="6xl" mx="auto" px={{ base: 6, md: 12 }} position="relative">
         {/* Section heading */}
         <MotionHeading
           id="tutorial-heading"
@@ -77,44 +83,34 @@ export default function TutorialSection() {
         </MotionHeading>
 
         {/* Tutorial slides */}
+        <Stack gap={{ base: 8, md: 10 }}>
         {slides.map((slide, index) => {
           const isReversed = index % 2 !== 0;
           const Icon = slide.icon;
 
           return (
             <MotionFlex
-              key={slide.number}
+              key={slide.title}
               direction={{ base: 'column', md: isReversed ? 'row-reverse' : 'row' }}
               position="relative"
-              minH={{ base: 'auto', md: '70vh' }}
               alignItems="center"
-              gap={{ base: 8, md: 16 }}
-              py={{ base: 12, md: 0 }}
+              gap={{ base: 6, md: 12 }}
               overflow="hidden"
+              bg="rgba(255, 255, 255, 0.02)"
+              backdropFilter="blur(24px) saturate(180%) brightness(1.1)"
+              borderWidth="1px"
+              borderTopColor="rgba(255, 255, 255, 0.15)"
+              borderLeftColor="rgba(255, 255, 255, 0.06)"
+              borderRightColor="rgba(255, 255, 255, 0.06)"
+              borderBottomColor="rgba(255, 255, 255, 0.03)"
+              borderRadius="2xl"
+              boxShadow="0 8px 32px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(255, 255, 255, 0.03)"
+              p={{ base: 6, md: 10 }}
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               viewport={{ once: true, margin: '-100px' }}
               transition={{ duration: 0.5 }}
             >
-              {/* Large faded step number watermark */}
-              <Text
-                position="absolute"
-                top="50%"
-                left={{ base: '50%', md: isReversed ? 'auto' : '5%' }}
-                right={{ base: 'auto', md: isReversed ? '5%' : 'auto' }}
-                transform="translateY(-50%)"
-                fontSize={{ base: '8rem', md: '12rem' }}
-                fontWeight="bold"
-                color="rgba(74, 222, 128, 0.06)"
-                pointerEvents="none"
-                userSelect="none"
-                aria-hidden="true"
-                display={{ base: 'none', md: 'block' }}
-                lineHeight={1}
-              >
-                {slide.number}
-              </Text>
-
               {/* Mockup side */}
               <MotionBox
                 w="100%"
@@ -130,21 +126,13 @@ export default function TutorialSection() {
                   overflow="hidden"
                   bg="rgba(74, 222, 128, 0.05)"
                   border="1px solid rgba(74, 222, 128, 0.1)"
-                  style={{ aspectRatio: '16 / 9' }}
                 >
-                  <Flex
-                    position="absolute"
-                    inset={0}
-                    alignItems="center"
-                    justifyContent="center"
-                    direction="column"
-                    gap={3}
-                  >
-                    <Icon size={32} color="#4a5568" />
-                    <Text color="gray.600" fontSize="sm" fontWeight="medium">
-                      {slide.mockupLabel}
-                    </Text>
-                  </Flex>
+                  <img
+                    src={slide.image}
+                    alt={slide.mockupLabel}
+                    loading="lazy"
+                    style={{ width: '100%', height: 'auto', display: 'block' }}
+                  />
                 </Box>
               </MotionBox>
 
@@ -213,6 +201,7 @@ export default function TutorialSection() {
             </MotionFlex>
           );
         })}
+        </Stack>
 
         {/* Closing CTA */}
         <MotionBox

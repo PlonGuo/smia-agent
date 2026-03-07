@@ -24,10 +24,10 @@ const cardVariants = {
 
 export default function Home() {
   return (
-    <Box bg="black">
+    <Box bg="black" position="relative" overflow="hidden">
+      <FluidHalo />
       {/* Hero Section */}
-      <Box position="relative" minH="100dvh" overflow="hidden">
-        <FluidHalo />
+      <Box position="relative" minH="100dvh">
         <Suspense fallback={null}>
           <ParticleScene />
         </Suspense>
@@ -149,15 +149,18 @@ export default function Home() {
             alignItems="center"
             gap={1}
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.4 }}
+            animate={{ opacity: 0.7 }}
             transition={{ delay: 1.5, duration: 0.8 }}
             aria-hidden="true"
           >
+            <Text color="gray.300" fontSize="xs" fontWeight="semibold" letterSpacing="widest" textTransform="uppercase">
+              Scroll
+            </Text>
             <MotionBox
-              animate={{ y: [0, 6, 0] }}
+              animate={{ y: [0, 10, 0] }}
               transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
             >
-              <ChevronDown size={20} color="#718096" />
+              <ChevronDown size={32} color="#4ade80" />
             </MotionBox>
           </MotionBox>
         </Flex>
