@@ -1,7 +1,9 @@
 """Tests for internal webhook endpoints."""
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, AsyncMock
+
+from models.update_schemas import UpdateSummary
 
 
 SAMPLE_COMMITS = [
@@ -14,6 +16,12 @@ NOISE_COMMITS = [
     {"id": "ddd2222222", "message": "docs: update readme", "author": "dev", "url": "#"},
     {"id": "eee3333333", "message": "Merge pull request #5 from dev/feature", "author": "dev", "url": "#"},
 ]
+
+MOCK_SUMMARY = UpdateSummary(
+    headline="New feature and bug fix",
+    summary="The platform received a new feature and a bug fix.",
+    highlights=["Added a new feature", "Resolved a bug"],
+)
 
 
 class TestNotifyUpdate:
@@ -41,7 +49,8 @@ class TestNotifyUpdate:
     @pytest.mark.anyio
     async def test_skips_when_no_users(self, client):
         with patch("routes.internal.settings") as mock_settings, \
-             patch("routes.internal.get_all_user_emails", return_value=[]):
+             patch("routes.internal.get_all_user_emails", return_value=[]), \
+             patch("routes.internal.summarize_commits", new_callable=AsyncMock, return_value=MOCK_SUMMARY):
             mock_settings.internal_secret = "test-secret"
             resp = await client.post(
                 "/api/internal/notify-update",
@@ -56,6 +65,7 @@ class TestNotifyUpdate:
     async def test_sends_emails_to_all_users(self, client):
         with patch("routes.internal.settings") as mock_settings, \
              patch("routes.internal.get_all_user_emails", return_value=["a@b.com", "c@d.com"]), \
+             patch("routes.internal.summarize_commits", new_callable=AsyncMock, return_value=MOCK_SUMMARY), \
              patch("routes.internal.send_update_notification", return_value=2) as mock_send:
             mock_settings.internal_secret = "test-secret"
             resp = await client.post(
@@ -69,7 +79,51 @@ class TestNotifyUpdate:
             assert data["emails_sent"] == 2
             assert data["total_users"] == 2
             assert "elapsed_ms" in data
-            mock_send.assert_called_once_with(SAMPLE_COMMITS, ["a@b.com", "c@d.com"])
+            mock_send.assert_called_once_with(MOCK_SUMMARY, ["a@b.com", "c@d.com"])
+
+    @pytest.mark.anyio
+    async def test_llm_fallback_on_failure(self, client):
+        with patch("routes.internal.settings") as mock_settings, \
+             patch("routes.internal.get_all_user_emails", return_value=["a@b.com"]), \
+             patch("routes.internal.summarize_commits", new_callable=AsyncMock, side_effect=Exception("LLM down")), \
+             patch("routes.internal.send_update_notification", return_value=1) as mock_send:
+            mock_settings.internal_secret = "test-secret"
+            resp = await client.post(
+                "/api/internal/notify-update",
+                json={"commits": SAMPLE_COMMITS},
+                headers={"x-internal-secret": "test-secret"},
+            )
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "ok"
+            # Verify fallback summary was used
+            call_args = mock_send.call_args[0]
+            summary = call_args[0]
+            assert isinstance(summary, UpdateSummary)
+            assert "feat: add new feature" in summary.headline
+
+    @pytest.mark.anyio
+    async def test_invalid_body_returns_422(self, client):
+        with patch("routes.internal.settings") as mock_settings:
+            mock_settings.internal_secret = "test-secret"
+            resp = await client.post(
+                "/api/internal/notify-update",
+                json={"bad_field": "bad_value"},
+                headers={"x-internal-secret": "test-secret"},
+            )
+            assert resp.status_code == 422
+
+    @pytest.mark.anyio
+    async def test_skips_when_all_noise_commits(self, client):
+        with patch("routes.internal.settings") as mock_settings:
+            mock_settings.internal_secret = "test-secret"
+            resp = await client.post(
+                "/api/internal/notify-update",
+                json={"commits": NOISE_COMMITS},
+                headers={"x-internal-secret": "test-secret"},
+            )
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "skipped"
+            assert resp.json()["reason"] == "no meaningful commits"
 
 
 class TestCommitFiltering:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html as html_mod
 import logging
 import re
 import smtplib
@@ -109,46 +110,34 @@ def _send_gmail(to: str, subject: str, html: str) -> None:
 
 
 def send_update_notification(
-    commits: list[dict], recipient_emails: list[str]
+    summary: "UpdateSummary", recipient_emails: list[str]
 ) -> int:
     """Send a platform update email to all recipients via Gmail SMTP.
 
-    Filters out noise commits. Returns count of emails sent.
+    Accepts an AI-generated UpdateSummary. Returns count of emails sent.
     """
-    meaningful = _filter_commits(commits)
-    if not meaningful or not recipient_emails:
+    if not recipient_emails:
         return 0
 
-    # Build HTML commit list
-    commit_items = ""
-    for c in meaningful:
-        author = c.get("author", "Unknown")
-        message = c.get("message", "").split("\n", 1)[0]  # first line only
-        sha_short = c.get("id", "")[:7]
-        url = c.get("url", "#")
-        commit_items += (
-            f'<tr>'
-            f'<td style="padding:6px 12px 6px 0;font-family:monospace;font-size:13px;">'
-            f'<a href="{url}" style="color:#6366f1;text-decoration:none;">{sha_short}</a></td>'
-            f'<td style="padding:6px 0;">{message}</td>'
-            f'<td style="padding:6px 0 6px 12px;color:#888;font-size:13px;">{author}</td>'
-            f'</tr>'
-        )
+    safe_headline = html_mod.escape(summary.headline)
+    safe_summary = html_mod.escape(summary.summary)
+    safe_highlights = "".join(
+        f'<li style="margin-bottom:6px;color:#333;">{html_mod.escape(h)}</li>'
+        for h in summary.highlights
+    )
 
-    # Use first commit message as dynamic subject
-    first_msg = meaningful[0].get("message", "").split("\n", 1)[0]
-    subject = f"SmIA Update: {first_msg}"
+    subject = f"SmIA Update: {safe_headline}"
     if len(subject) > 78:
         subject = subject[:75] + "..."
 
-    html = (
+    html_body = (
         '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;'
         'max-width:600px;margin:0 auto;color:#1a1a1a;">'
-        '<h2 style="color:#6366f1;margin-bottom:4px;">SmIA Platform Updated</h2>'
-        '<p style="color:#555;margin-top:0;">A new version has been deployed with the following changes:</p>'
-        '<table style="border-collapse:collapse;width:100%;">'
-        f'{commit_items}'
-        '</table>'
+        '<h2 style="color:#6366f1;margin-bottom:4px;">What\'s New in SmIA</h2>'
+        f'<p style="color:#333;margin-top:8px;line-height:1.6;">{safe_summary}</p>'
+        '<ul style="padding-left:20px;margin:16px 0;">'
+        f'{safe_highlights}'
+        '</ul>'
         '<hr style="border:none;border-top:1px solid #e5e5e5;margin:24px 0;" />'
         '<p style="color:#999;font-size:11px;">'
         'You received this because you have an account on SmIA.'
@@ -156,12 +145,28 @@ def send_update_notification(
         '</div>'
     )
 
+    gmail_addr = settings.gmail_address.strip()
+    gmail_pass = settings.gmail_app_password.strip()
+    if not gmail_addr or not gmail_pass:
+        logger.error("Gmail credentials not configured, skipping update emails")
+        return 0
+
     sent = 0
-    for email in recipient_emails:
-        try:
-            _send_gmail(to=email, subject=subject, html=html)
-            sent += 1
-        except Exception as exc:
-            logger.error("Failed to send update email to %s: %s", email, exc)
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(gmail_addr, gmail_pass)
+            for addr in recipient_emails:
+                try:
+                    msg = MIMEMultipart("alternative")
+                    msg["From"] = f"SmIA <{gmail_addr}>"
+                    msg["To"] = addr
+                    msg["Subject"] = subject
+                    msg.attach(MIMEText(html_body, "html"))
+                    server.sendmail(gmail_addr, addr, msg.as_string())
+                    sent += 1
+                except Exception as exc:
+                    logger.error("Failed to send update email to %s: %s", addr, exc)
+    except Exception as exc:
+        logger.error("Gmail SMTP connection failed: %s", exc)
 
     return sent
