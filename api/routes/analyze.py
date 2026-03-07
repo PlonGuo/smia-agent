@@ -61,7 +61,9 @@ async def analyze(
                     access_token=user.access_token,
                 )
                 report.id = saved.get("id")
-                report.created_at = saved.get("created_at")
+                raw_ts = saved.get("created_at")
+                if raw_ts:
+                    report.created_at = datetime.fromisoformat(raw_ts)
             except Exception as save_exc:
                 logger.error("Failed to save report: %s", save_exc)
 
