@@ -24,8 +24,11 @@ async def notify_update(request: Request, body: NotifyUpdateRequest):
     print("[INTERNAL/NOTIFY-UPDATE] Received request")
 
     secret = request.headers.get("x-internal-secret", "")
-    if not hmac.compare_digest(secret.encode(), settings.internal_secret.encode()):
-        print("[INTERNAL/NOTIFY-UPDATE] Auth failed: secret mismatch")
+    expected = settings.internal_secret
+    if not hmac.compare_digest(secret.encode(), expected.encode()):
+        print(f"[INTERNAL/NOTIFY-UPDATE] Auth failed: "
+              f"got len={len(secret)} first='{secret[:3]}' last='{secret[-3:]}', "
+              f"expected len={len(expected)} first='{expected[:3]}' last='{expected[-3:]}'")
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     # Manual summary mode: use provided content directly
