@@ -39,20 +39,28 @@ jobs:
         run: |
           echo "Payload:"
           cat /tmp/payload.json | jq .
+          PAYLOAD_SIZE=$(wc -c < /tmp/payload.json)
           COMMIT_COUNT=$(jq '.commits | length' /tmp/payload.json)
-          echo "Sending notification with ${COMMIT_COUNT} commits"
+          echo "Payload size: ${PAYLOAD_SIZE} bytes, ${COMMIT_COUNT} commits"
 
-          echo "Target URL: ${API_URL}/api/internal/notify-update"
+          # Trim any trailing whitespace/newlines from URL
+          CLEAN_URL=$(echo -n "${API_URL}" | tr -d '[:space:]')
+          FULL_URL="${CLEAN_URL}/api/internal/notify-update"
+          echo "Target URL: ${FULL_URL}"
+          echo "URL length: ${#FULL_URL}"
 
-          HTTP_CODE=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+          # -d implies POST; do NOT use -X POST (breaks redirect body handling)
+          HTTP_CODE=$(curl -v -o /tmp/response.json -w "%{http_code}" \
             -L --post301 --post302 --post303 \
-            -X POST "${API_URL}/api/internal/notify-update" \
             -H "Content-Type: application/json" \
             -H "x-internal-secret: ${INTERNAL_SECRET}" \
             -d @/tmp/payload.json \
-            --max-time 55)
+            --max-time 55 "${FULL_URL}" 2>/tmp/curl_debug.txt)
 
           echo "HTTP status: ${HTTP_CODE}"
+          echo "--- curl debug (filtered) ---"
+          grep -E '(^[<>*]|redirect|Location:)' /tmp/curl_debug.txt | grep -v 'internal-secret' | head -40
+          echo "--- response body ---"
           cat /tmp/response.json | jq . 2>/dev/null || cat /tmp/response.json
           if [ "$HTTP_CODE" -ge 400 ]; then
             exit 1
