@@ -33,32 +33,31 @@ jobs:
           fi
 
       - name: Send notification to backend
+        uses: actions/github-script@v7
         env:
           API_URL: ${{ secrets.SMIA_API_URL }}
           INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
-        run: |
-          echo "Payload:"
-          cat /tmp/payload.json | jq .
-          PAYLOAD_SIZE=$(wc -c < /tmp/payload.json)
-          COMMIT_COUNT=$(jq '.commits | length' /tmp/payload.json)
-          echo "Payload size: ${PAYLOAD_SIZE} bytes, ${COMMIT_COUNT} commits"
+        with:
+          script: |
+            const fs = require('fs');
+            const payload = fs.readFileSync('/tmp/payload.json', 'utf8');
 
-          # Strip whitespace and trailing slash from URL to avoid double-slash in path
-          CLEAN_URL=$(echo -n "${API_URL}" | tr -d '[:space:]' | sed 's:/*$::')
-          FULL_URL="${CLEAN_URL}/api/internal/notify-update"
-          echo "Target URL: ${FULL_URL}"
+            const baseUrl = process.env.API_URL.replace(/\/+$/, '');
+            const url = `${baseUrl}/api/internal/notify-update`;
+            console.log(`Sending ${JSON.parse(payload).commits.length} commits to ${url}`);
 
-          # Compact JSON to single line, then send via @file
-          jq -c . /tmp/payload.json > /tmp/payload_compact.json
-          HTTP_CODE=$(curl -s -o /tmp/response.json -w "%{http_code}" \
-            -H "Content-Type: application/json" \
-            -H "x-internal-secret: ${INTERNAL_SECRET}" \
-            --data-binary @/tmp/payload_compact.json \
-            --max-time 55 "${FULL_URL}")
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-internal-secret': process.env.INTERNAL_SECRET,
+              },
+              body: payload,
+            });
 
-          echo "HTTP status: ${HTTP_CODE}"
-          echo "--- response body ---"
-          cat /tmp/response.json | jq . 2>/dev/null || cat /tmp/response.json
-          if [ "$HTTP_CODE" -ge 400 ]; then
-            exit 1
-          fi
+            const body = await response.json();
+            console.log(`HTTP ${response.status}:`, JSON.stringify(body, null, 2));
+
+            if (!response.ok) {
+              core.setFailed(`API returned ${response.status}`);
+            }

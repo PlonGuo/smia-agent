@@ -66,19 +66,6 @@ app.include_router(feedback_router)
 app.include_router(internal_router)
 
 
-@app.middleware("http")
-async def log_raw_body(request: Request, call_next):
-    """Temporary debug: log raw body to diagnose empty body issue."""
-    if request.url.path == "/api/internal/notify-update":
-        body = await request.body()
-        print(f"[BODY-DEBUG] {request.method} {request.url.path}: "
-              f"content-type={request.headers.get('content-type')}, "
-              f"content-length={request.headers.get('content-length')}, "
-              f"body_len={len(body)}, body_preview={body[:200]}")
-    response = await call_next(request)
-    return response
-
-
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
     """Log 422 validation errors with full detail for debugging."""
