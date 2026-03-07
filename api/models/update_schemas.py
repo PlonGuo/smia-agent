@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CommitInfo(BaseModel):
     id: str
     message: str
-    author: str
-    url: str
+    author: str = "unknown"
+    url: str = ""
+
+    @field_validator("author", "url", "message", mode="before")
+    @classmethod
+    def coerce_none(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 class UpdateSummary(BaseModel):
