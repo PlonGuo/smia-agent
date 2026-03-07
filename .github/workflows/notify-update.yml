@@ -1,3 +1,4 @@
+# Sends update email to all users when a production deployment succeeds.
 name: Notify Users on Deploy
 
 on:
