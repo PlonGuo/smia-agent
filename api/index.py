@@ -44,12 +44,12 @@ _ALLOWED_ORIGINS = [
     "https://smia-agent-git-main-huizhirong-guos-projects.vercel.app",
 ]
 
+if settings.environment == "development":
+    _ALLOWED_ORIGINS += ["http://localhost:5173", "http://localhost:3000"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_ALLOWED_ORIGINS + (
-        ["http://localhost:5173", "http://localhost:3000"]
-        if settings.environment in ("development", "vercel-dev") else []
-    ),
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "x-internal-secret"],
@@ -78,7 +78,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     """Catch unhandled exceptions, log details, return sanitized response."""
     tb = traceback.format_exc()
     print(f"[UNHANDLED] {request.method} {request.url.path}: {type(exc).__name__}: {exc}\n{tb[-500:]}")
-    if settings.environment in ("development", "vercel-dev"):
+    if settings.environment == "development":
         return JSONResponse(status_code=500, content={"detail": f"{type(exc).__name__}: {exc}"})
     return JSONResponse(status_code=500, content={"detail": "An internal error occurred."})
 
@@ -88,3 +88,6 @@ async def health_check():
     return {"status": "ok"}
 
 
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8080)

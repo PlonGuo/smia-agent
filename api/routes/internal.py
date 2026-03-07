@@ -23,6 +23,10 @@ async def notify_update(request: Request, body: NotifyUpdateRequest):
     t0 = time.time()
     print("[INTERNAL/NOTIFY-UPDATE] Received request")
 
+    if not settings.internal_secret:
+        print("[INTERNAL/NOTIFY-UPDATE] Auth failed: internal_secret not configured")
+        raise HTTPException(status_code=503, detail="Not configured")
+
     secret = request.headers.get("x-internal-secret", "")
     if not hmac.compare_digest(secret.encode(), settings.internal_secret.encode()):
         print("[INTERNAL/NOTIFY-UPDATE] Auth failed: secret mismatch")

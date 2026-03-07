@@ -31,7 +31,7 @@ from services.database import (
 logger = logging.getLogger(__name__)
 
 TELEGRAM_API = "https://api.telegram.org/bot{token}"
-WEB_APP_URL = "https://smia-agent.vercel.app"
+WEB_APP_URL = settings.effective_app_url or "https://smia-agent.vercel.app"
 
 
 # ---------------------------------------------------------------------------
