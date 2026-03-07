@@ -105,12 +105,36 @@ class TestNotifyUpdate:
     async def test_invalid_body_returns_422(self, client):
         with patch("routes.internal.settings") as mock_settings:
             mock_settings.internal_secret = "test-secret"
+            # Invalid commit structure triggers 422
             resp = await client.post(
                 "/api/internal/notify-update",
-                json={"bad_field": "bad_value"},
+                json={"commits": [{"invalid": "structure"}]},
                 headers={"x-internal-secret": "test-secret"},
             )
             assert resp.status_code == 422
+
+    @pytest.mark.anyio
+    async def test_manual_summary_bypasses_llm(self, client):
+        manual = {
+            "headline": "Big Update",
+            "summary": "We shipped something awesome.",
+            "highlights": ["Feature A", "Fix B"],
+        }
+        with patch("routes.internal.settings") as mock_settings, \
+             patch("routes.internal.get_all_user_emails", return_value=["a@b.com"]), \
+             patch("routes.internal.send_update_notification", return_value=1) as mock_send:
+            mock_settings.internal_secret = "test-secret"
+            resp = await client.post(
+                "/api/internal/notify-update",
+                json={"manual_summary": manual},
+                headers={"x-internal-secret": "test-secret"},
+            )
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "ok"
+            call_args = mock_send.call_args[0]
+            summary = call_args[0]
+            assert summary.headline == "Big Update"
+            assert summary.summary == "We shipped something awesome."
 
     @pytest.mark.anyio
     async def test_skips_when_all_noise_commits(self, client):
