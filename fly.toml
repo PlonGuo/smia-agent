@@ -1,5 +1,5 @@
 app = "smia-agent"
-primary_region = "sin"
+primary_region = "sjc"
 
 [build]
 
@@ -25,5 +25,5 @@ primary_region = "sin"
     type = "http"
     interval = "30s"
     timeout = "10s"
-    grace_period = "30s"
+    grace_period = "60s"
     path = "/api/health"
