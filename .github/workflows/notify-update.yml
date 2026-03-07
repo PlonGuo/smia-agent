@@ -9,7 +9,9 @@ jobs:
   notify:
     name: Send Update Email
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
     steps:
       - name: Wait for Vercel frontend deploy
         run: |

@@ -50,6 +50,7 @@ if settings.environment == "development":
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://smia-agent(-git-[\w-]+)?-huizhirong-guos-projects\.vercel\.app",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "x-internal-secret"],
