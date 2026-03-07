@@ -48,12 +48,12 @@ jobs:
           FULL_URL="${CLEAN_URL}/api/internal/notify-update"
           echo "Target URL: ${FULL_URL}"
 
-          # Read payload into variable and send as inline data
-          PAYLOAD=$(cat /tmp/payload.json)
+          # Compact JSON to single line, then send via @file
+          jq -c . /tmp/payload.json > /tmp/payload_compact.json
           HTTP_CODE=$(curl -s -o /tmp/response.json -w "%{http_code}" \
             -H "Content-Type: application/json" \
             -H "x-internal-secret: ${INTERNAL_SECRET}" \
-            --data-binary "$PAYLOAD" \
+            --data-binary @/tmp/payload_compact.json \
             --max-time 55 "${FULL_URL}")
 
           echo "HTTP status: ${HTTP_CODE}"
