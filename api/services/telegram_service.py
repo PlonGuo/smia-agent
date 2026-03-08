@@ -435,10 +435,7 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
             # MUST check "claimed" BEFORE status — staleness recovery returns
             # claimed=True WITH status="collecting", and we need to run the
             # pipeline, not just show "being generated...".
-            # We just claimed the lock — run collectors inline.
-            # With Vercel maxDuration=60s and collectors taking ~20s,
-            # this fits comfortably. Phase 2 is triggered via HTTP by
-            # run_collectors_phase itself.
+            # We just claimed the lock — run the full digest pipeline inline.
             await send_message(
                 chat_id,
                 "\U0001f680 <b>Generating today's digest...</b>\n\n"
@@ -448,10 +445,10 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
                 f'<a href="{WEB_APP_URL}/ai-daily-report">View progress on web</a>',
             )
             try:
-                print(f"[TG /digest] Claimed! Running collectors inline for digest_id={result['digest_id']}")
-                from services.digest_service import run_collectors_phase
-                await run_collectors_phase(result["digest_id"])
-                print("[TG /digest] Collectors phase completed successfully")
+                print(f"[TG /digest] Claimed! Running full digest pipeline for digest_id={result['digest_id']}")
+                from services.digest_service import run_digest
+                await run_digest(result["digest_id"])
+                print("[TG /digest] Digest pipeline completed successfully")
             except Exception as exc:
                 tb = traceback.format_exc()
                 print(f"[TG /digest] ERROR running collectors: {exc}\n{tb}")
