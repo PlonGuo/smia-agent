@@ -221,6 +221,7 @@ export async function removeAdmin(id: string): Promise<void> {
 export interface DailyDigest {
   id: string;
   digest_date: string;
+  topic: string;
   status: string;
   executive_summary?: string;
   items?: DigestItemData[];
