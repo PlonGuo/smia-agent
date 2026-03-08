@@ -14,6 +14,7 @@ import {
 } from '@chakra-ui/react';
 import { useAuth } from '../hooks/useAuth';
 import { toaster } from '../lib/toaster';
+import SEO from '../components/SEO';
 
 export default function Signup() {
   const [email, setEmail] = useState('');
@@ -73,6 +74,7 @@ export default function Signup() {
       flex={1}
       pt={{ base: 4, md: 0 }}
     >
+      <SEO title="Sign Up" description="Create a free SmIA account. Start analyzing social media trends with AI." />
       <Card.Root className="glass-panel" maxW="md" w="full">
         <Card.Header textAlign="center">
           <Heading size="xl" mb={1}>
