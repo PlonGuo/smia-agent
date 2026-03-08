@@ -64,16 +64,17 @@ class TestDigestItem:
         assert item.importance == 5
         assert item.also_on == []
 
-    def test_invalid_category(self):
-        with pytest.raises(ValidationError):
-            DigestItem(
-                title="Test",
-                url="https://example.com",
-                source="arxiv",
-                category="InvalidCategory",
-                importance=3,
-                why_it_matters="Some reason here for this item",
-            )
+    def test_any_category_accepted(self):
+        """Category is now str (not Literal) to support multi-topic digests."""
+        item = DigestItem(
+            title="Test",
+            url="https://example.com",
+            source="arxiv",
+            category="Conflict & Security",
+            importance=3,
+            why_it_matters="Some reason here for this item",
+        )
+        assert item.category == "Conflict & Security"
 
     def test_importance_out_of_range(self):
         with pytest.raises(ValidationError):
@@ -146,16 +147,17 @@ class TestDailyDigestLLMOutput:
         assert len(output.items) == 1
         assert len(output.top_highlights) == 3
 
-    def test_too_few_highlights(self):
-        with pytest.raises(ValidationError):
-            DailyDigestLLMOutput(
-                executive_summary="Summary",
-                items=[self._make_digest_item()],
-                top_highlights=["Only one"],
-                trending_keywords=["AI"],
-                category_counts={"Research": 1},
-                source_counts={"arxiv": 1},
-            )
+    def test_single_highlight_accepted(self):
+        """min_length relaxed to 1 to handle light news days."""
+        output = DailyDigestLLMOutput(
+            executive_summary="Summary",
+            items=[self._make_digest_item()],
+            top_highlights=["Only one"],
+            trending_keywords=["AI"],
+            category_counts={"Research": 1},
+            source_counts={"arxiv": 1},
+        )
+        assert len(output.top_highlights) == 1
 
     def test_too_many_highlights(self):
         with pytest.raises(ValidationError):

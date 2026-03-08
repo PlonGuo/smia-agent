@@ -64,7 +64,9 @@ async def test_full_pipeline_mock():
         mock_result = MagicMock()
         mock_result.output = mock_output
 
-        with patch("services.digest_agent.digest_agent.run", new_callable=AsyncMock, return_value=mock_result):
+        mock_agent = MagicMock()
+        mock_agent.run = AsyncMock(return_value=mock_result)
+        with patch("services.digest_agent._create_digest_agent", return_value=mock_agent):
             from services.digest_agent import analyze_digest
             result = await analyze_digest(all_items)
 

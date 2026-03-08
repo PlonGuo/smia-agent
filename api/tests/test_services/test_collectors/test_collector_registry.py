@@ -11,7 +11,7 @@ from services.collectors.base import COLLECTOR_REGISTRY, Collector
 
 class TestCollectorRegistry:
     def test_all_collectors_registered(self):
-        """Importing __init__ registers all 4 collectors."""
+        """Importing __init__ registers all collectors (original 4 + new ones)."""
         from services.collectors import arxiv_collector, github_collector, rss_collector, bluesky_collector  # noqa: F401
 
         assert "arxiv" in COLLECTOR_REGISTRY
@@ -33,7 +33,8 @@ class TestCollectorRegistry:
                 f"{name}.collect() must be async"
             )
 
-    def test_registry_has_four_collectors(self):
+    def test_registry_has_at_least_four_collectors(self):
+        """Registry now has 4 original + new collectors (hackernews, currents)."""
         from services.collectors import arxiv_collector, github_collector, rss_collector, bluesky_collector  # noqa: F401
 
-        assert len(COLLECTOR_REGISTRY) == 4
+        assert len(COLLECTOR_REGISTRY) >= 4

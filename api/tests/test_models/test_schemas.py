@@ -35,11 +35,12 @@ class TestTopDiscussion:
         assert d.score is None
         assert d.snippet is None
 
-    def test_invalid_source(self):
-        with pytest.raises(ValidationError):
-            TopDiscussion(
-                title="Test", url="https://example.com", source="twitter"
-            )
+    def test_any_source_accepted(self):
+        """Source is now str (not Literal) to support new data sources."""
+        d = TopDiscussion(
+            title="Test", url="https://example.com", source="hackernews"
+        )
+        assert d.source == "hackernews"
 
 
 class TestTrendReport:

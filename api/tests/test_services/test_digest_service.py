@@ -131,19 +131,22 @@ class TestRunCollectors:
     async def test_caches_and_runs_missing(self):
         """Collectors that have cached data should be skipped; missing ones should run."""
         mock_client = MagicMock()
-        # No cached data
-        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+        # No cached data — need two .eq() calls (digest_date, topic)
+        eq_chain = MagicMock()
+        eq_chain.eq.return_value.execute.return_value = MagicMock(data=[])
+        mock_client.table.return_value.select.return_value.eq.return_value = eq_chain
         # Upsert for caching
         mock_client.table.return_value.upsert.return_value.execute.return_value = MagicMock()
 
         items = _make_sample_items()
         mock_collector = MagicMock()
+        mock_collector.name = "test"
         mock_collector.collect = AsyncMock(return_value=items)
 
         with patch("services.digest_service.get_supabase_client", return_value=mock_client), \
-             patch("services.digest_service.COLLECTOR_REGISTRY", {"test": mock_collector}):
+             patch("services.collector_factory.get_collectors_for_topic", return_value=[mock_collector]):
             from services.digest_service import _run_collectors
-            all_items, health = await _run_collectors(mock_client, date.today().isoformat())
+            all_items, health = await _run_collectors(mock_client, date.today().isoformat(), "ai")
 
             assert len(all_items) == 1
             assert health["test"] == "ok"
@@ -154,17 +157,21 @@ class TestRunCollectors:
         """If cache exists for a collector, use it instead of running."""
         cached_items = [_make_sample_items()[0].model_dump(mode="json")]
         mock_client = MagicMock()
-        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+        # Cached data exists — two .eq() calls return cached results
+        eq_chain = MagicMock()
+        eq_chain.eq.return_value.execute.return_value = MagicMock(
             data=[{"source": "test", "items": cached_items, "item_count": 1}]
         )
+        mock_client.table.return_value.select.return_value.eq.return_value = eq_chain
 
         mock_collector = MagicMock()
+        mock_collector.name = "test"
         mock_collector.collect = AsyncMock(return_value=[])
 
         with patch("services.digest_service.get_supabase_client", return_value=mock_client), \
-             patch("services.digest_service.COLLECTOR_REGISTRY", {"test": mock_collector}):
+             patch("services.collector_factory.get_collectors_for_topic", return_value=[mock_collector]):
             from services.digest_service import _run_collectors
-            all_items, health = await _run_collectors(mock_client, date.today().isoformat())
+            all_items, health = await _run_collectors(mock_client, date.today().isoformat(), "ai")
 
             assert len(all_items) == 1
             assert "cached" in health["test"]
@@ -175,15 +182,18 @@ class TestRunCollectors:
     async def test_collector_failure_graceful(self):
         """Failed collector returns empty but doesn't crash."""
         mock_client = MagicMock()
-        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+        eq_chain = MagicMock()
+        eq_chain.eq.return_value.execute.return_value = MagicMock(data=[])
+        mock_client.table.return_value.select.return_value.eq.return_value = eq_chain
 
         failing_collector = MagicMock()
+        failing_collector.name = "broken"
         failing_collector.collect = AsyncMock(side_effect=Exception("Network error"))
 
         with patch("services.digest_service.get_supabase_client", return_value=mock_client), \
-             patch("services.digest_service.COLLECTOR_REGISTRY", {"broken": failing_collector}):
+             patch("services.collector_factory.get_collectors_for_topic", return_value=[failing_collector]):
             from services.digest_service import _run_collectors
-            all_items, health = await _run_collectors(mock_client, date.today().isoformat())
+            all_items, health = await _run_collectors(mock_client, date.today().isoformat(), "ai")
 
             assert all_items == []
             assert "failed" in health["broken"]
