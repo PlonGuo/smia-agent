@@ -33,7 +33,7 @@ class TestTelegramWebhook:
         """Webhook returns 200 OK for any valid JSON."""
         with patch("routes.telegram.handle_update", new_callable=AsyncMock):
             resp = await client.post(
-                "/telegram/webhook",
+                "/api/telegram/webhook",
                 json=_make_update("/start"),
             )
         assert resp.status_code == 200
@@ -43,7 +43,7 @@ class TestTelegramWebhook:
     async def test_returns_400_for_invalid_json(self, client):
         """Webhook returns 400 for non-JSON bodies."""
         resp = await client.post(
-            "/telegram/webhook",
+            "/api/telegram/webhook",
             content=b"not json",
             headers={"content-type": "application/json"},
         )
@@ -55,7 +55,7 @@ class TestTelegramWebhook:
         mock_handler = AsyncMock()
         with patch("routes.telegram.handle_update", mock_handler):
             await client.post(
-                "/telegram/webhook",
+                "/api/telegram/webhook",
                 json=_make_update("/help"),
             )
         # BackgroundTasks execution is automatic in test client
@@ -65,5 +65,5 @@ class TestTelegramWebhook:
     async def test_empty_update_still_ok(self, client):
         """An empty update dict still returns 200."""
         with patch("routes.telegram.handle_update", new_callable=AsyncMock):
-            resp = await client.post("/telegram/webhook", json={})
+            resp = await client.post("/api/telegram/webhook", json={})
         assert resp.status_code == 200
