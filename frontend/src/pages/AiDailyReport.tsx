@@ -42,19 +42,22 @@ export default function AiDailyReport() {
 
   // Fetch today's digest for selected topic
   useEffect(() => {
-    setDigest(null);
-    setDigestId(null);
-    setDigestStatus('loading');
+    let cancelled = false;
 
     const fetchDigest = async () => {
+      setDigest(null);
+      setDigestId(null);
+      setDigestStatus('loading');
       try {
         const result = await getTodayDigest(currentTopic);
+        if (cancelled) return;
         setDigestStatus(result.status);
         setDigestId(result.digest_id);
         if (result.digest) {
           setDigest(result.digest);
         }
       } catch (err: unknown) {
+        if (cancelled) return;
         const msg = err instanceof Error ? err.message : 'Failed to load digest';
         toaster.error({ title: 'Error', description: msg });
         setDigestStatus('error');
@@ -62,6 +65,7 @@ export default function AiDailyReport() {
     };
 
     fetchDigest();
+    return () => { cancelled = true; };
   }, [currentTopic]);
 
   // Realtime: subscribe to digest status changes
