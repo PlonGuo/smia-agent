@@ -494,3 +494,453 @@ async def _firecrawl_fetch(url: str) -> str | None:
     except Exception as exc:
         logger.warning("Firecrawl failed for URL %s: %s", url, exc)
         return None
+
+
+# ---------------------------------------------------------------------------
+# Hacker News  (Algolia API)
+# ---------------------------------------------------------------------------
+
+_HN_SEARCH = "http://hn.algolia.com/api/v1/search"
+_HN_ITEM = "http://hn.algolia.com/api/v1/items"
+
+
+@observe(name="fetch_hackernews")
+async def fetch_hackernews(
+    query: str,
+    limit: int = 15,
+) -> list[dict[str, Any]]:
+    """Search Hacker News via Algolia API and fetch comments for top results.
+
+    Returns a list of dicts:
+        {title, url, body, comments, score, source}
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                _HN_SEARCH,
+                params={"query": query, "tags": "story", "hitsPerPage": limit},
+            )
+            resp.raise_for_status()
+            hits = resp.json().get("hits", [])
+
+            async def _enrich(hit: dict) -> dict[str, Any]:
+                """Fetch comments for a single HN story."""
+                comments: list[dict[str, str]] = []
+                try:
+                    item_resp = await client.get(f"{_HN_ITEM}/{hit['objectID']}")
+                    item_resp.raise_for_status()
+                    children = item_resp.json().get("children", [])
+                    for child in children[:5]:
+                        text = child.get("text") or ""
+                        # Strip HTML tags from HN comment text
+                        text = re.sub(r"<[^>]+>", "", text)
+                        comments.append({
+                            "author": child.get("author", ""),
+                            "text": text[:200],
+                        })
+                except Exception as exc:
+                    logger.warning("Failed to fetch HN comments for %s: %s", hit.get("objectID"), exc)
+
+                story_text = hit.get("story_text") or hit.get("comment_text") or ""
+                story_text = re.sub(r"<[^>]+>", "", story_text)
+
+                return {
+                    "title": hit.get("title", ""),
+                    "url": hit.get("url") or f"https://news.ycombinator.com/item?id={hit.get('objectID', '')}",
+                    "body": story_text[:400],
+                    "comments": comments,
+                    "score": hit.get("points", 0),
+                    "source": "hackernews",
+                }
+
+            # Enrich top 5 with comments, rest without
+            enriched = await asyncio.gather(*[_enrich(h) for h in hits[:5]])
+            plain = [
+                {
+                    "title": h.get("title", ""),
+                    "url": h.get("url") or f"https://news.ycombinator.com/item?id={h.get('objectID', '')}",
+                    "body": re.sub(r"<[^>]+>", "", h.get("story_text") or "")[:400],
+                    "comments": [],
+                    "score": h.get("points", 0),
+                    "source": "hackernews",
+                }
+                for h in hits[5:]
+            ]
+            return list(enriched) + plain
+
+    except httpx.TimeoutException:
+        logger.error("Hacker News fetch timed out for query: %s", query)
+        return []
+    except Exception as exc:
+        logger.error("Hacker News fetch failed for query %s: %s", query, exc)
+        return []
+
+
+# ---------------------------------------------------------------------------
+# DEV.to  (Forem API)
+# ---------------------------------------------------------------------------
+
+_DEVTO_ARTICLES = "https://dev.to/api/articles"
+_DEVTO_COMMENTS = "https://dev.to/api/comments"
+
+
+@observe(name="fetch_devto")
+async def fetch_devto(
+    query: str,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Fetch articles from DEV.to by tag and top comments.
+
+    Returns a list of dicts:
+        {title, url, body, comments, score, source}
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                _DEVTO_ARTICLES,
+                params={"tag": query, "per_page": limit, "top": 7},
+            )
+            resp.raise_for_status()
+            articles = resp.json()
+
+            async def _with_comments(article: dict) -> dict[str, Any]:
+                """Fetch comments for a single DEV.to article."""
+                comments: list[dict[str, str]] = []
+                try:
+                    c_resp = await client.get(
+                        _DEVTO_COMMENTS,
+                        params={"a_id": article["id"]},
+                    )
+                    c_resp.raise_for_status()
+                    for c in c_resp.json()[:5]:
+                        comments.append({
+                            "author": c.get("user", {}).get("username", ""),
+                            "text": re.sub(r"<[^>]+>", "", c.get("body_html", ""))[:200],
+                        })
+                except Exception as exc:
+                    logger.warning("Failed to fetch DEV.to comments for article %s: %s", article.get("id"), exc)
+
+                body = article.get("body_markdown") or article.get("description") or ""
+                return {
+                    "title": article.get("title", ""),
+                    "url": article.get("url", ""),
+                    "body": body[:400],
+                    "comments": comments,
+                    "score": article.get("positive_reactions_count", 0),
+                    "source": "devto",
+                }
+
+            # Enrich top 5 with comments, rest without
+            enriched = await asyncio.gather(*[_with_comments(a) for a in articles[:5]])
+            plain = [
+                {
+                    "title": a.get("title", ""),
+                    "url": a.get("url", ""),
+                    "body": (a.get("description") or "")[:400],
+                    "comments": [],
+                    "score": a.get("positive_reactions_count", 0),
+                    "source": "devto",
+                }
+                for a in articles[5:]
+            ]
+            return list(enriched) + plain
+
+    except httpx.TimeoutException:
+        logger.error("DEV.to fetch timed out for query: %s", query)
+        return []
+    except Exception as exc:
+        logger.error("DEV.to fetch failed for query %s: %s", query, exc)
+        return []
+
+
+# ---------------------------------------------------------------------------
+# News RSS  (feedparser, sync library run in executor)
+# ---------------------------------------------------------------------------
+
+_NEWS_RSS_FEEDS_PATH = Path(__file__).resolve().parent.parent / "config" / "news_rss_feeds.json"
+
+
+@observe(name="fetch_news_rss")
+async def fetch_news_rss(
+    query: str,
+    feeds: list[dict[str, str]] | None = None,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Fetch and filter RSS feed entries matching the query.
+
+    Args:
+        feeds: List of {name, url} dicts. If None, loads from rss_feeds.json.
+        limit: Max entries to return across all feeds.
+
+    Returns a list of dicts:
+        {title, url, body, source, published_at}
+    """
+    if feeds is None:
+        try:
+            with open(_NEWS_RSS_FEEDS_PATH) as f:
+                feeds = json.load(f).get("feeds", [])
+        except Exception as exc:
+            logger.error("Failed to load RSS feeds config: %s", exc)
+            return []
+
+    def _sync_parse() -> list[dict[str, Any]]:
+        import feedparser  # type: ignore[import-untyped]
+
+        query_lower = query.lower()
+        results: list[dict[str, Any]] = []
+
+        for feed_info in feeds:  # type: ignore[union-attr]
+            try:
+                parsed = feedparser.parse(feed_info["url"])
+                for entry in parsed.entries:
+                    title = entry.get("title", "")
+                    summary = entry.get("summary", "")
+                    if query_lower in title.lower() or query_lower in summary.lower():
+                        results.append({
+                            "title": title,
+                            "url": entry.get("link", ""),
+                            "body": re.sub(r"<[^>]+>", "", summary)[:400],
+                            "source": "news_rss",
+                            "published_at": entry.get("published", ""),
+                        })
+                        if len(results) >= limit:
+                            return results
+            except Exception as exc:
+                logger.warning("Failed to parse RSS feed %s: %s", feed_info.get("name"), exc)
+
+        return results
+
+    try:
+        loop = asyncio.get_running_loop()
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _sync_parse),
+            timeout=CRAWL_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        logger.error("RSS feed fetch timed out for query: %s", query)
+        return []
+    except Exception as exc:
+        logger.error("RSS feed fetch failed for query %s: %s", query, exc)
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Stack Exchange  (Stack Overflow API v2.3)
+# ---------------------------------------------------------------------------
+
+_SE_SEARCH = "https://api.stackexchange.com/2.3/search/advanced"
+
+
+@observe(name="fetch_stackexchange")
+async def fetch_stackexchange(
+    query: str,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Search Stack Overflow for relevant Q&A.
+
+    Returns a list of dicts:
+        {title, url, body, score, source}
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                _SE_SEARCH,
+                params={
+                    "q": query,
+                    "site": "stackoverflow",
+                    "sort": "relevance",
+                    "pagesize": limit,
+                    "filter": "withbody",
+                },
+            )
+            resp.raise_for_status()
+            items = resp.json().get("items", [])
+
+            results: list[dict[str, Any]] = []
+            for item in items:
+                body = item.get("body", "")
+                body = re.sub(r"<[^>]+>", "", body)  # strip HTML tags
+                results.append({
+                    "title": item.get("title", ""),
+                    "url": item.get("link", ""),
+                    "body": body[:400],
+                    "score": item.get("score", 0),
+                    "source": "stackexchange",
+                })
+            return results
+
+    except httpx.TimeoutException:
+        logger.error("StackExchange fetch timed out for query: %s", query)
+        return []
+    except Exception as exc:
+        logger.error("StackExchange fetch failed for query %s: %s", query, exc)
+        return []
+
+
+# ---------------------------------------------------------------------------
+# The Guardian  (Content API)
+# ---------------------------------------------------------------------------
+
+_GUARDIAN_SEARCH = "https://content.guardianapis.com/search"
+
+
+@observe(name="fetch_guardian")
+async def fetch_guardian(
+    query: str,
+    limit: int = 10,
+    section: str | None = None,
+) -> list[dict[str, Any]]:
+    """Search The Guardian for news articles.
+
+    Requires settings.guardian_api_key. Returns empty list if not configured.
+
+    Returns a list of dicts:
+        {title, url, body, source}
+    """
+    api_key = getattr(settings, "guardian_api_key", None)
+    if not api_key:
+        logger.info("Guardian API key not configured – skipping Guardian fetch")
+        return []
+
+    try:
+        params: dict[str, Any] = {
+            "q": query,
+            "show-fields": "headline,bodyText,byline",
+            "page-size": limit,
+            "order-by": "newest",
+            "api-key": api_key,
+        }
+        if section:
+            params["section"] = section
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(_GUARDIAN_SEARCH, params=params)
+            resp.raise_for_status()
+            data = resp.json().get("response", {})
+            articles = data.get("results", [])
+
+            results: list[dict[str, Any]] = []
+            for article in articles:
+                fields = article.get("fields", {})
+                results.append({
+                    "title": fields.get("headline", article.get("webTitle", "")),
+                    "url": article.get("webUrl", ""),
+                    "body": (fields.get("bodyText") or "")[:400],
+                    "source": "guardian",
+                })
+            return results
+
+    except httpx.TimeoutException:
+        logger.error("Guardian fetch timed out for query: %s", query)
+        return []
+    except Exception as exc:
+        logger.error("Guardian fetch failed for query %s: %s", query, exc)
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Tavily  (AI search API)
+# ---------------------------------------------------------------------------
+
+
+@observe(name="fetch_tavily")
+async def fetch_tavily(
+    query: str,
+    limit: int = 10,
+    topic: str = "general",
+) -> list[dict[str, Any]]:
+    """Search the web using Tavily AI search.
+
+    Requires settings.tavily_api_key. Returns empty list if not configured.
+
+    Returns a list of dicts:
+        {title, url, body, score, source}
+    """
+    api_key = getattr(settings, "tavily_api_key", None)
+    if not api_key:
+        logger.info("Tavily API key not configured – skipping Tavily fetch")
+        return []
+
+    try:
+        from tavily import AsyncTavilyClient  # type: ignore[import-untyped]
+
+        client = AsyncTavilyClient(api_key=api_key)
+        response = await asyncio.wait_for(
+            client.search(query, max_results=limit, topic=topic),
+            timeout=30,
+        )
+        results: list[dict[str, Any]] = []
+        for item in response.get("results", []):
+            results.append({
+                "title": item.get("title", ""),
+                "url": item.get("url", ""),
+                "body": (item.get("content") or "")[:400],
+                "score": item.get("score", 0),
+                "source": "tavily",
+            })
+        return results
+
+    except ImportError:
+        logger.warning("tavily-python not installed – skipping Tavily fetch")
+        return []
+    except asyncio.TimeoutError:
+        logger.error("Tavily fetch timed out for query: %s", query)
+        return []
+    except Exception as exc:
+        logger.error("Tavily fetch failed for query %s: %s", query, exc)
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Currents API  (news aggregation)
+# ---------------------------------------------------------------------------
+
+_CURRENTS_SEARCH = "https://api.currentsapi.services/v1/search"
+
+
+@observe(name="fetch_currents_news")
+async def fetch_currents_news(
+    query: str,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Search news articles via Currents API.
+
+    Requires settings.currents_api_key. Returns empty list if not configured.
+
+    Returns a list of dicts:
+        {title, url, body, source}
+    """
+    api_key = getattr(settings, "currents_api_key", None)
+    if not api_key:
+        logger.info("Currents API key not configured – skipping Currents fetch")
+        return []
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                _CURRENTS_SEARCH,
+                params={
+                    "keywords": query,
+                    "language": "en",
+                    "apiKey": api_key,
+                },
+            )
+            resp.raise_for_status()
+            news = resp.json().get("news", [])[:limit]
+
+            results: list[dict[str, Any]] = []
+            for article in news:
+                results.append({
+                    "title": article.get("title", ""),
+                    "url": article.get("url", ""),
+                    "body": (article.get("description") or "")[:400],
+                    "source": "currents",
+                })
+            return results
+
+    except httpx.TimeoutException:
+        logger.error("Currents news fetch timed out for query: %s", query)
+        return []
+    except Exception as exc:
+        logger.error("Currents news fetch failed for query %s: %s", query, exc)
+        return []

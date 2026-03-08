@@ -52,8 +52,7 @@ class TestRssCollector:
         feeds_config = {"feeds": [{"name": "Test Blog", "url": "https://blog.example.com/feed"}]}
         parsed = _make_parsed_feed([_make_feed_entry()])
 
-        with patch("services.collectors.rss_collector._config_path") as mock_path, \
-             patch("builtins.open", create=True) as mock_open, \
+        with patch("builtins.open", create=True) as mock_open, \
              patch("json.load", return_value=feeds_config), \
              patch("services.collectors.rss_collector.feedparser.parse", return_value=parsed):
             from services.collectors.rss_collector import RssCollector

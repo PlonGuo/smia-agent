@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from core.auth import AuthenticatedUser, get_current_user
 from core.config import settings
+from config.digest_topics import DIGEST_TOPICS
 from models.digest_schemas import AccessRequestCreate
 from services.database import get_supabase_client
 from services.digest_service import claim_or_get_digest, run_digest
@@ -34,8 +35,20 @@ def _task_done(task: asyncio.Task) -> None:
 # ---------------------------------------------------------------------------
 
 
+@router.get("/topics")
+async def list_topics():
+    """Return available digest topics."""
+    return {
+        "topics": [
+            {"key": key, "display_name": cfg["display_name"]}
+            for key, cfg in DIGEST_TOPICS.items()
+        ]
+    }
+
+
 @router.get("/today")
 async def get_today_digest(
+    topic: str = Query("ai"),
     user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Main endpoint: check permission, claim/return digest.
@@ -43,10 +56,13 @@ async def get_today_digest(
     Returns FAST. If we claimed the lock, the digest pipeline runs as a
     background asyncio task so we don't block the HTTP response.
     """
-    result = claim_or_get_digest(user.user_id, user.access_token)
+    if topic not in DIGEST_TOPICS:
+        raise HTTPException(status_code=400, detail=f"Unknown topic: {topic}")
+
+    result = claim_or_get_digest(user.user_id, user.access_token, topic=topic)
 
     if result.get("claimed"):
-        task = asyncio.create_task(run_digest(result["digest_id"]))
+        task = asyncio.create_task(run_digest(result["digest_id"], topic=topic))
         _background_tasks.add(task)
         task.add_done_callback(_task_done)
 
@@ -67,18 +83,20 @@ async def get_access_status(
 
 @router.get("/list")
 async def list_digests(
+    topic: str = Query("ai"),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     user: AuthenticatedUser = Depends(get_current_user),
 ):
-    """List past digests (last 30 days)."""
+    """List past digests (last 30 days), filtered by topic."""
     client = get_supabase_client()
     offset = (page - 1) * per_page
 
     data_resp = (
         client.table("daily_digests")
-        .select("id, digest_date, status, executive_summary, total_items, category_counts, created_at")
+        .select("id, digest_date, topic, status, executive_summary, total_items, category_counts, created_at")
         .eq("status", "completed")
+        .eq("topic", topic)
         .order("digest_date", desc=True)
         .range(offset, offset + per_page - 1)
         .execute()
@@ -87,6 +105,7 @@ async def list_digests(
         client.table("daily_digests")
         .select("id", count="exact")
         .eq("status", "completed")
+        .eq("topic", topic)
         .execute()
     )
     return {

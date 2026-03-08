@@ -87,9 +87,11 @@ class TestAnalyzeDigest:
         mock_result = MagicMock()
         mock_result.output = mock_output
 
-        with patch("services.digest_agent.digest_agent.run", new_callable=AsyncMock) as mock_run:
-            mock_run.return_value = mock_result
+        # _create_digest_agent returns an agent; mock its .run() method
+        mock_agent = MagicMock()
+        mock_agent.run = AsyncMock(return_value=mock_result)
 
+        with patch("services.digest_agent._create_digest_agent", return_value=mock_agent):
             from services.digest_agent import analyze_digest
             result = await analyze_digest(_make_sample_items())
 
@@ -104,15 +106,16 @@ class TestAnalyzeDigest:
         mock_result = MagicMock()
         mock_result.output = _make_mock_llm_output()
 
-        with patch("services.digest_agent.digest_agent.run", new_callable=AsyncMock) as mock_run:
-            mock_run.return_value = mock_result
+        mock_agent = MagicMock()
+        mock_agent.run = AsyncMock(return_value=mock_result)
 
+        with patch("services.digest_agent._create_digest_agent", return_value=mock_agent):
             from services.digest_agent import analyze_digest
             items = _make_sample_items()
             await analyze_digest(items)
 
             # Verify the agent was called with all items in the prompt
-            call_args = mock_run.call_args[0][0]
+            call_args = mock_agent.run.call_args[0][0]
             assert "arxiv" in call_args
             assert "github" in call_args
             assert "rss" in call_args
@@ -130,9 +133,10 @@ class TestAnalyzeDigest:
             source_counts={},
         )
 
-        with patch("services.digest_agent.digest_agent.run", new_callable=AsyncMock) as mock_run:
-            mock_run.return_value = mock_result
+        mock_agent = MagicMock()
+        mock_agent.run = AsyncMock(return_value=mock_result)
 
+        with patch("services.digest_agent._create_digest_agent", return_value=mock_agent):
             from services.digest_agent import analyze_digest
             result = await analyze_digest([])
 

@@ -26,22 +26,26 @@ interface Props {
   items: DigestItem[];
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  Breakthrough: 'purple',
-  Research: 'blue',
-  Tooling: 'teal',
-  'Open Source': 'green',
-  Infrastructure: 'cyan',
-  Product: 'orange',
-  Policy: 'yellow',
-  Safety: 'red',
+// Color palette for categories — known ones get fixed colors, others cycle
+const KNOWN_COLORS: Record<string, string> = {
+  Breakthrough: 'purple', Research: 'blue', Tooling: 'teal',
+  'Open Source': 'green', Infrastructure: 'cyan', Product: 'orange',
+  Policy: 'yellow', Safety: 'red',
+  'Conflict & Security': 'red', Diplomacy: 'blue',
+  'Trade & Sanctions': 'orange', 'Political Change': 'purple',
+  'Regional Tensions': 'yellow',
+  'Policy & Regulation': 'teal', 'Extreme Weather': 'red',
+  'Energy Transition': 'green', 'Research & Data': 'blue',
+  'Activism & Society': 'purple',
+  'Disease & Outbreak': 'red', 'Drug & Treatment': 'green',
+  'Public Health Policy': 'teal',
   Other: 'gray',
 };
+const FALLBACK_PALETTE = ['purple', 'blue', 'teal', 'green', 'cyan', 'orange', 'yellow', 'red', 'pink'];
 
-const CATEGORY_ORDER = [
-  'Breakthrough', 'Research', 'Tooling', 'Open Source',
-  'Infrastructure', 'Product', 'Policy', 'Safety', 'Other',
-];
+function getCatColor(cat: string, idx: number): string {
+  return KNOWN_COLORS[cat] || FALLBACK_PALETTE[idx % FALLBACK_PALETTE.length];
+}
 
 export default function KanbanBoard({ items }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -59,8 +63,13 @@ export default function KanbanBoard({ items }: Props) {
     grouped[cat].sort((a, b) => b.importance - a.importance);
   }
 
-  // Order categories
-  const categories = CATEGORY_ORDER.filter((c) => grouped[c]);
+  // Order categories: known ones first in key order, then unknowns alphabetically
+  const knownOrder = Object.keys(KNOWN_COLORS);
+  const allCats = Object.keys(grouped);
+  const categories = [
+    ...knownOrder.filter((c) => grouped[c]),
+    ...allCats.filter((c) => !knownOrder.includes(c)).sort(),
+  ];
 
   // Mobile: filter by selected category
   const mobileItems = selectedCategory
@@ -118,7 +127,7 @@ export default function KanbanBoard({ items }: Props) {
         pb={4}
         alignItems="flex-start"
       >
-        {categories.map((cat) => (
+        {categories.map((cat, catIdx) => (
           <Box
             key={cat}
             minW="280px"
@@ -127,7 +136,7 @@ export default function KanbanBoard({ items }: Props) {
           >
             <Flex alignItems="center" gap={2} mb={3}>
               <Badge
-                colorPalette={CATEGORY_COLORS[cat] || 'gray'}
+                colorPalette={getCatColor(cat, catIdx)}
                 variant="subtle"
                 size="sm"
               >

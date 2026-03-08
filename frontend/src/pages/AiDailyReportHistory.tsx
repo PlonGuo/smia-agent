@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import {
   Badge,
   Box,
@@ -13,24 +13,38 @@ import {
   Text,
 } from '@chakra-ui/react';
 import { useDigestPermissions } from '../hooks/useDigestPermissions';
-import { listDigests } from '../lib/api';
+import { listDigests, getDigestTopics } from '../lib/api';
 import type { DailyDigest } from '../lib/api';
 import { toaster } from '../lib/toaster';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const PER_PAGE = 20;
 
+interface TopicInfo {
+  key: string;
+  display_name: string;
+}
+
 export default function AiDailyReportHistory() {
   const { hasAccess, accessStatus } = useDigestPermissions();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentTopic = searchParams.get('topic') || 'ai';
+  const [topics, setTopics] = useState<TopicInfo[]>([]);
   const [digests, setDigests] = useState<DailyDigest[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    getDigestTopics()
+      .then((data) => setTopics(data.topics))
+      .catch(() => setTopics([{ key: 'ai', display_name: 'AI Intelligence' }]));
+  }, []);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await listDigests(page, PER_PAGE);
+      const data = await listDigests(page, PER_PAGE, currentTopic);
       setDigests(data.digests);
       setTotal(data.total);
     } catch (err: unknown) {
@@ -39,7 +53,7 @@ export default function AiDailyReportHistory() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, currentTopic]);
 
   useEffect(() => {
     if (hasAccess) fetchData();
@@ -71,7 +85,24 @@ export default function AiDailyReportHistory() {
 
   return (
     <Box>
-      <Heading size="xl" mb={6}>Digest History</Heading>
+      <Heading size="xl" mb={4}>Digest History</Heading>
+
+      {topics.length > 1 && (
+        <Flex gap={2} mb={4} overflowX="auto" pb={1} css={{ '&::-webkit-scrollbar': { display: 'none' } }}>
+          {topics.map((t) => (
+            <Button
+              className="btn-silicone"
+              key={t.key}
+              size="sm"
+              variant={currentTopic === t.key ? 'subtle' : 'ghost'}
+              onClick={() => { setSearchParams({ topic: t.key }); setPage(1); }}
+              flexShrink={0}
+            >
+              {t.display_name}
+            </Button>
+          ))}
+        </Flex>
+      )}
 
       {loading ? (
         <Stack gap={4}>

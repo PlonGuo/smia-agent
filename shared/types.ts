@@ -3,7 +3,7 @@ export type Sentiment = 'Positive' | 'Negative' | 'Neutral';
 export interface TopDiscussion {
   title: string;
   url: string;
-  source: 'reddit' | 'youtube' | 'amazon';
+  source: string;
   score?: number;
   snippet?: string;
 }
@@ -75,16 +75,8 @@ export interface BindConfirmRequest {
 
 // --- AI Daily Digest types ---
 
-export type DigestCategory =
-  | 'Breakthrough'
-  | 'Research'
-  | 'Tooling'
-  | 'Open Source'
-  | 'Infrastructure'
-  | 'Product'
-  | 'Policy'
-  | 'Safety'
-  | 'Other';
+// Categories are topic-specific, enforced via LLM system prompt
+export type DigestCategory = string;
 
 export type DigestStatus = 'collecting' | 'analyzing' | 'completed' | 'failed' | 'not_found';
 
@@ -105,6 +97,7 @@ export interface DigestItem {
 export interface DailyDigest {
   id: string;
   digest_date: string;
+  topic: string;
   status: DigestStatus;
   executive_summary: string;
   items: DigestItem[];

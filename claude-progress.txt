@@ -1,23 +1,31 @@
-# SmIA Progress Tracker — Dashboard Cold Start Fix
-# Updated: 2026-02-26
+# SmIA Progress Tracker — Expand Data Sources + Multi-Topic Digests
+# Updated: 2026-03-08
 
 ## Current State
-Dashboard cold start fix completed and pushed to `development` branch.
+All code complete on branch `expand-data-sources`. DB migration pending.
 
 ## What Was Done
-- Diagnosed Dashboard slow loading (5-10s) as Vercel serverless cold start issue
-- Added sessionStorage SWR cache to Dashboard.tsx — cached data shown instantly on revisit
-- Optimized count query in database.py (select id instead of *)
-- Verified: 256 backend tests pass, frontend builds clean
-- Committed: 59aebc2, pushed to development
-- Plan recorded: docs/plans/2026-02-26-dashboard-cold-start-fix.md
-- Added "Plan documentation" rule to CLAUDE.md Working Rules
+- Part A: 7 new crawlers (HN, Dev.to, Stack Exchange, Guardian, News RSS, Tavily, Currents)
+- Part A: 7 new PydanticAI tools with rich docstrings for LLM tool selection
+- Part A: Agent system prompt with topic-based tool selection strategy (9 tools total)
+- Part B: Topic config (ai, geopolitics, climate, health) with per-topic categories
+- Part B: Collector factory (SIMPLE + PARAMETERIZED split pattern)
+- Part B: 3 new collectors (Guardian, HackerNews, Currents) + parameterized RSS
+- Part B: Dynamic digest agent creation per topic (_create_digest_agent)
+- Part B: Topic-aware digest pipeline (service, routes, cache)
+- Part B: Frontend topic switcher tabs on Digest + History pages
+- Part B: Dynamic KanbanBoard categories
+- Part B: Telegram commands (/digest_geo, /digest_climate, /digest_health)
+- Critical fixes: F1 (TopDiscussion.source→str), F2 (CategoryType→str), F3 (topic field), F5 (API keys), B9 (configurable models)
 
-## What's Next (candidates)
-- AI Daily Digest frontend (Steps 7-9): hooks, admin page, digest page, history/sharing
-- Security hardening (docs/plans/security-hardening.md)
-- Phase 4 polish items from docs/features.md
-- Consider upgrading to Vercel Pro for cron keep-alive (eliminates first-visit cold start too)
+## What's Next
+1. **Apply DB migration** via Supabase MCP: run api/migrations/003_add_digest_topics.sql
+   - Also cleanup: DELETE FROM daily_digests WHERE digest_date = '2026-01-01';
+2. **Optional**: Write tests for new tools (Step 6/A6)
+3. End-to-end testing after migration
+
+## Plan
+docs/plans/wild-leaping-cat.md (also ~/.claude/plans/wild-leaping-cat.md)
 
 ## Blockers
-- None
+- Supabase MCP was not available in previous session; user has now enabled it

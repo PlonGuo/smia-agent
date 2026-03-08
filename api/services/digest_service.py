@@ -18,13 +18,13 @@ from langfuse import get_client, observe
 from core.config import settings
 from core.langfuse_config import flush_langfuse, trace_metadata
 from models.digest_schemas import RawCollectorItem
-from services.collectors.base import COLLECTOR_REGISTRY
+# COLLECTOR_REGISTRY no longer used directly — see collector_factory.py
 from services.database import get_supabase_client
 
 logger = logging.getLogger(__name__)
 
 
-def claim_or_get_digest(user_id: str, access_token: str) -> dict:
+def claim_or_get_digest(user_id: str, access_token: str, topic: str = "ai") -> dict:
     """Claim lock or return current status. Returns FAST — does NOT run pipeline.
 
     Called from GET /api/ai-daily-report/today and Telegram /digest.
@@ -35,7 +35,7 @@ def claim_or_get_digest(user_id: str, access_token: str) -> dict:
     client = get_supabase_client()  # service role for RPC
     today = date.today().isoformat()
 
-    result = client.rpc("claim_digest_generation", {"p_date": today}).execute()
+    result = client.rpc("claim_digest_generation", {"p_date": today, "p_topic": topic}).execute()
     row = result.data  # JSONB: {"claimed": bool, "digest_id": "...", "current_status": "..."}
 
     if not row["claimed"]:
@@ -95,17 +95,14 @@ def claim_or_get_digest(user_id: str, access_token: str) -> dict:
 # ---------------------------------------------------------------------------
 
 @observe(name="run_digest")
-async def run_digest(digest_id: str) -> None:
+async def run_digest(digest_id: str, topic: str = "ai") -> None:
     """Run the full digest pipeline: collect → analyze → save → notify."""
     client = get_supabase_client()  # service role
     today = date.today().isoformat()
 
     try:
-        # Import collectors to trigger registration
-        import services.collectors  # noqa: F401
-
-        # Phase 1: Collect
-        all_items, source_health = await _run_collectors(client, today)
+        # Phase 1: Collect using topic-specific collectors
+        all_items, source_health = await _run_collectors(client, today, topic)
 
         if not all_items:
             # All collectors failed — mark as failed
@@ -143,7 +140,7 @@ async def run_digest(digest_id: str) -> None:
         from services.digest_agent import analyze_digest, DIGEST_PROMPT_VERSION
 
         start = time.time()
-        digest_output = await analyze_digest(all_items)
+        digest_output = await analyze_digest(all_items, topic=topic)
         processing_time = int(time.time() - start)
 
         print(f"[DIGEST] LLM analysis completed in {processing_time}s")
@@ -164,7 +161,8 @@ async def run_digest(digest_id: str) -> None:
             "trending_keywords": digest_output.trending_keywords,
             "category_counts": digest_output.category_counts,
             "source_counts": digest_output.source_counts,
-            "model_used": "gpt-4.1",
+            "topic": topic,
+            "model_used": settings.digest_model,
             "processing_time_seconds": processing_time,
             "langfuse_trace_id": langfuse_trace_id,
             "prompt_version": DIGEST_PROMPT_VERSION,
@@ -176,7 +174,7 @@ async def run_digest(digest_id: str) -> None:
 
         # Notify via Telegram
         try:
-            await _notify_telegram(digest_output, len(all_items))
+            await _notify_telegram(digest_output, len(all_items), topic=topic)
         except Exception as exc:
             logger.error("Telegram notification failed: %s", exc)
 
@@ -198,25 +196,31 @@ async def run_digest(digest_id: str) -> None:
         }).eq("id", digest_id).execute()
 
 
-async def _run_collectors(client, today: str) -> tuple[list[RawCollectorItem], dict]:
-    """Run all collectors in parallel, cache results per source."""
+async def _run_collectors(client, today: str, topic: str = "ai") -> tuple[list[RawCollectorItem], dict]:
+    """Run topic-specific collectors in parallel, cache results per source+topic."""
+    from services.collector_factory import get_collectors_for_topic
+
     all_items: list[RawCollectorItem] = []
     source_health: dict[str, str] = {}
+
+    # Get collectors for this topic
+    collectors = get_collectors_for_topic(topic)
 
     # Check cache first
     cached = (
         client.table("digest_collector_cache")
         .select("source, items, item_count")
         .eq("digest_date", today)
+        .eq("topic", topic)
         .execute()
     )
     cached_sources = {row["source"]: row for row in cached.data}
 
     # Determine which collectors need to run
     collectors_to_run = {}
-    for name, collector in COLLECTOR_REGISTRY.items():
+    for collector in collectors:
+        name = collector.name
         if name in cached_sources:
-            # Use cached data
             items_data = cached_sources[name]["items"]
             items = [RawCollectorItem(**item) for item in items_data]
             all_items.extend(items)
@@ -239,14 +243,15 @@ async def _run_collectors(client, today: str) -> tuple[list[RawCollectorItem], d
             else:
                 source_health[name] = "ok"
                 all_items.extend(result)
-                # Cache results
+                # Cache results with topic dimension
                 try:
                     client.table("digest_collector_cache").upsert({
                         "digest_date": today,
                         "source": name,
+                        "topic": topic,
                         "items": [item.model_dump(mode="json") for item in result],
                         "item_count": len(result),
-                    }, on_conflict="digest_date,source").execute()
+                    }, on_conflict="digest_date,source,topic").execute()
                 except Exception as exc:
                     logger.error("Failed to cache %s results: %s", name, exc)
 
@@ -269,10 +274,13 @@ def _cleanup_old_data(client) -> None:
         logger.error("Cleanup failed: %s", exc)
 
 
-async def _notify_telegram(digest_output, total_items: int) -> None:
+async def _notify_telegram(digest_output, total_items: int, topic: str = "ai") -> None:
     """Send digest notification to authorized users with linked Telegram."""
+    from config.digest_topics import DIGEST_TOPICS
     from services.telegram_service import notify_digest_ready
 
+    topic_cfg = DIGEST_TOPICS.get(topic, {})
+    display_name = topic_cfg.get("display_name", topic.title())
     categories = digest_output.category_counts
     summary = digest_output.executive_summary
-    await notify_digest_ready(total_items, categories, summary)
+    await notify_digest_ready(total_items, categories, summary, topic_name=display_name)

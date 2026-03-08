@@ -2,10 +2,12 @@
 
 Usage:
     cd api && uv run python -m cli.run_digest
+    cd api && uv run python -m cli.run_digest --topic geopolitics
 """
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import sys
 from datetime import date
@@ -19,16 +21,16 @@ if _api_dir not in sys.path:
 from core.langfuse_config import init_langfuse
 
 
-async def main() -> None:
+async def main(topic: str = "ai") -> None:
     init_langfuse()
 
     from services.database import get_supabase_client
-    from services.digest_service import run_collectors_phase, run_analysis_phase
+    from services.digest_service import run_digest
 
     client = get_supabase_client()
     today = date.today().isoformat()
 
-    print(f"[cli] Triggering digest for {today}...")
+    print(f"[cli] Triggering digest for {today} (topic={topic})...")
 
     # Claim via RPC
     result = client.rpc("claim_digest_generation", {"p_date": today}).execute()
@@ -41,11 +43,13 @@ async def main() -> None:
     digest_id = row["digest_id"]
     print(f"[cli] Digest ID: {digest_id} (claimed={row['claimed']}, status={row['current_status']})")
 
-    if row["claimed"] or row["current_status"] == "collecting":
-        print("[cli] Running collectors phase...")
-        await run_collectors_phase(digest_id)
+    if row["claimed"] or row["current_status"] in ("collecting", "failed"):
+        print("[cli] Running full digest pipeline...")
+        await run_digest(digest_id)
+    else:
+        print(f"[cli] Status is '{row['current_status']}' — nothing to do.")
 
-    # Check status after collectors
+    # Check final status
     digest = (
         client.table("daily_digests")
         .select("status")
@@ -53,20 +57,16 @@ async def main() -> None:
         .single()
         .execute()
     )
-    current_status = digest.data["status"]
-
-    if current_status == "analyzing":
-        print("[cli] Running analysis phase...")
-        await run_analysis_phase(digest_id)
-    elif current_status == "completed":
-        print("[cli] Digest already completed.")
-    elif current_status == "failed":
-        print("[cli] Digest generation failed. Check logs.")
-    else:
-        print(f"[cli] Unexpected status: {current_status}")
-
+    print(f"[cli] Final status: {digest.data['status']}")
     print("[cli] Done.")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description="Manually trigger digest generation")
+    parser.add_argument(
+        "--topic",
+        default="ai",
+        help="Digest topic (default: ai)",
+    )
+    args = parser.parse_args()
+    asyncio.run(main(topic=args.topic))

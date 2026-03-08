@@ -1,0 +1,9 @@
+{
+  "feeds": [
+    {"name": "WHO News", "url": "https://www.who.int/rss-feeds/news-english.xml"},
+    {"name": "BBC Health", "url": "http://feeds.bbci.co.uk/news/health/rss.xml"},
+    {"name": "STAT News", "url": "https://www.statnews.com/feed"},
+    {"name": "Medical News Today", "url": "https://www.medicalnewstoday.com/rss"},
+    {"name": "NIH News", "url": "https://www.nih.gov/news-events/news-releases/feed"}
+  ]
+}

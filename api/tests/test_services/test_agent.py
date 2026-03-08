@@ -17,15 +17,20 @@ class TestAgentConfig:
     def test_agent_has_all_tools(self):
         agent = create_agent()
         tool_names = list(agent._function_toolset.tools)
-        assert "fetch_reddit_tool" in tool_names
+        # New tool set (Reddit disabled, new sources added)
         assert "fetch_youtube_tool" in tool_names
         assert "fetch_amazon_tool" in tool_names
         assert "clean_noise_tool" in tool_names
+        assert "fetch_hackernews_tool" in tool_names
+        assert "fetch_devto_tool" in tool_names
+        assert "fetch_stackexchange_tool" in tool_names
+        assert "fetch_guardian_tool" in tool_names
 
     def test_system_prompt_mentions_key_instructions(self):
-        assert "Reddit" in SYSTEM_PROMPT
         assert "YouTube" in SYSTEM_PROMPT
         assert "Amazon" in SYSTEM_PROMPT
+        assert "Hacker News" in SYSTEM_PROMPT
+        assert "Guardian" in SYSTEM_PROMPT
         assert "TrendReport" in SYSTEM_PROMPT
         assert "sentiment" in SYSTEM_PROMPT
 
