@@ -646,7 +646,7 @@ async def handle_update(update: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def notify_digest_ready(total_items: int, categories: dict, summary: str = "") -> None:
+async def notify_digest_ready(total_items: int, categories: dict, summary: str = "", topic_name: str = "AI Daily Digest") -> None:
     """Send digest notification to all authorized users with linked Telegram."""
     client = get_supabase_client()
 
@@ -684,7 +684,7 @@ async def notify_digest_ready(total_items: int, categories: dict, summary: str =
         summary_text = f"\n<b>Summary:</b>\n{_escape_html(summary)}\n"
 
     message = (
-        "\U0001f4f0 <b>AI Daily Digest is ready!</b>\n\n"
+        f"\U0001f4f0 <b>{_escape_html(topic_name)} digest is ready!</b>\n\n"
         f"\U0001f4ca {total_items} items analyzed\n"
         f"\U0001f3f7 {cat_text}\n"
         f"{summary_text}\n"
