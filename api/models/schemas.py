@@ -8,7 +8,7 @@ from datetime import datetime
 class TopDiscussion(BaseModel):
     title: str
     url: str
-    source: Literal["reddit", "youtube", "amazon"]
+    source: str
     score: int | None = None
     snippet: str | None = None
 

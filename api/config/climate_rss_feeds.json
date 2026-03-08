@@ -1,0 +1,9 @@
+{
+  "feeds": [
+    {"name": "Guardian Climate", "url": "https://www.theguardian.com/environment/climate-crisis/rss"},
+    {"name": "Carbon Brief", "url": "https://www.carbonbrief.org/feed"},
+    {"name": "BBC Science & Environment", "url": "http://feeds.bbci.co.uk/news/science_and_environment/rss.xml"},
+    {"name": "InsideClimate News", "url": "https://insideclimatenews.org/feed"},
+    {"name": "Climate Home News", "url": "https://www.climatechangenews.com/feed"}
+  ]
+}

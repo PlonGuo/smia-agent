@@ -61,6 +61,15 @@ class Settings(BaseSettings):
     # Bluesky (optional)
     bluesky_app_password: str = ""
 
+    # New data source API keys (optional — collectors skip gracefully if missing)
+    guardian_api_key: str = ""
+    tavily_api_key: str = ""
+    currents_api_key: str = ""
+
+    # Configurable LLM models (default: gpt-4.1)
+    analysis_model: str = "gpt-4.1"
+    digest_model: str = "gpt-4.1"
+
     # Internal (two-phase pipeline trigger)
     internal_secret: str = ""
     app_url: str = ""  # Set in Vercel env, or auto-derived from VERCEL_URL

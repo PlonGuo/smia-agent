@@ -18,17 +18,18 @@ from .base import register_collector
 
 logger = logging.getLogger(__name__)
 
-# Load feed URLs from config file (S2)
-_config_path = Path(__file__).resolve().parent.parent.parent / "config" / "rss_feeds.json"
+# Base config directory
+_config_dir = Path(__file__).resolve().parent.parent.parent / "config"
 
 
-def _load_feeds() -> list[dict]:
+def _load_feeds(config_file: str = "rss_feeds.json") -> list[dict]:
     """Load RSS feed configuration from JSON file."""
+    config_path = _config_dir / config_file
     try:
-        with open(_config_path) as f:
+        with open(config_path) as f:
             return json.load(f)["feeds"]
     except Exception as exc:
-        logger.error("Failed to load RSS feeds config: %s", exc)
+        logger.error("Failed to load RSS feeds config (%s): %s", config_file, exc)
         return []
 
 
@@ -86,7 +87,13 @@ def _parse_feed_sync(feed_config: dict, cutoff: datetime) -> list[RawCollectorIt
 
 
 class RssCollector:
-    name = "rss"
+    def __init__(self, name: str = "rss", config_file: str = "rss_feeds.json"):
+        self._name = name
+        self._config_file = config_file
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     @observe(name="rss_collector")
     async def collect(self) -> list[RawCollectorItem]:
@@ -94,7 +101,7 @@ class RssCollector:
 
         feedparser.parse() is synchronous — run in executor (I4).
         """
-        feeds = _load_feeds()
+        feeds = _load_feeds(self._config_file)
         if not feeds:
             return []
 

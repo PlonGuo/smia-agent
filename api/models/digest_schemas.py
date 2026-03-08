@@ -22,10 +22,8 @@ class RawCollectorItem(BaseModel):
 
 # --- Digest output models (LLM structured output) ---
 
-CategoryType = Literal[
-    "Breakthrough", "Research", "Tooling", "Open Source",
-    "Infrastructure", "Product", "Policy", "Safety", "Other"
-]
+# Categories are enforced via system prompt per topic, not schema validation
+CategoryType = str
 
 
 class DigestItem(BaseModel):
@@ -43,7 +41,7 @@ class DailyDigestLLMOutput(BaseModel):
     """Structured output from PydanticAI agent — what the LLM generates."""
     executive_summary: str
     items: list[DigestItem]
-    top_highlights: list[str] = Field(min_length=3, max_length=5)
+    top_highlights: list[str] = Field(min_length=1, max_length=5)
     trending_keywords: list[str]
     category_counts: dict[str, int]
     source_counts: dict[str, int]
@@ -53,6 +51,7 @@ class DailyDigestDB(DailyDigestLLMOutput):
     """Full DB row — LLM output + metadata set by orchestrator."""
     id: str
     digest_date: str
+    topic: str = "ai"
     status: str
     source_health: dict[str, str]
     total_items: int

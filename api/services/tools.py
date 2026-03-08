@@ -14,7 +14,18 @@ from pydantic_ai import RunContext
 
 from core.config import settings
 from services.cache import get_cached_fetch, get_fetch_limits, set_cached_fetch
-from services.crawler import fetch_amazon, fetch_reddit, fetch_youtube
+from services.crawler import (
+    fetch_amazon,
+    fetch_currents_news,
+    fetch_devto,
+    fetch_guardian,
+    fetch_hackernews,
+    fetch_news_rss,
+    fetch_reddit,
+    fetch_stackexchange,
+    fetch_tavily,
+    fetch_youtube,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -288,11 +299,11 @@ async def fetch_reddit_tool(ctx: RunContext, query: str) -> str:
 
 async def fetch_youtube_tool(ctx: RunContext, query: str) -> str:
     """Fetch YouTube video comments about the given query.
-
-    Searches YouTube Data API v3, retrieves top videos and their comments,
-    and returns a formatted text summary for LLM analysis.
+    SOURCE: YouTube Data API v3. Returns video descriptions + user comments.
+    BEST FOR: product reviews, tech tutorials, conference talks, how-to content,
+    entertainment discussions, music, gaming, and any visual/video-based topic.
+    SENTIMENT VALUE: High — video comments contain diverse user opinions. Universal tool.
     Applies relevance filtering with adaptive refetch on low yield.
-    Uses per-source caching to avoid redundant fetches.
     """
     time_range = getattr(ctx.deps, "time_range", "week")
     limits = get_fetch_limits(time_range)
@@ -342,11 +353,11 @@ async def fetch_youtube_tool(ctx: RunContext, query: str) -> str:
 
 async def fetch_amazon_tool(ctx: RunContext, query: str) -> str:
     """Fetch Amazon product listings and reviews for the given query.
-
-    Uses Crawl4AI (with Firecrawl fallback) to scrape Amazon search results
-    and returns the extracted markdown content.
-    Applies relevance filtering with adaptive refetch on low yield.
-    Uses per-source caching to avoid redundant fetches.
+    SOURCE: Amazon via web scraping (Crawl4AI/Firecrawl).
+    BEST FOR: consumer products, product comparisons, shopping decisions,
+    brand reputation from real buyer reviews.
+    SENTIMENT VALUE: High — product reviews and ratings are pure sentiment data.
+    NOT FOR: news, politics, programming topics.
     """
     time_range = getattr(ctx.deps, "time_range", "week")
     limits = get_fetch_limits(time_range)
@@ -399,3 +410,179 @@ async def clean_noise_tool(ctx: RunContext, data: str, source: str) -> str:
     by the fetch tools, but can be called again if additional cleaning is needed.
     """
     return _clean_text(data, source)
+
+
+# ---------------------------------------------------------------------------
+# New tool functions (no caching — fast free APIs)
+# ---------------------------------------------------------------------------
+
+
+async def fetch_hackernews_tool(ctx: RunContext, query: str) -> str:
+    """Fetch discussions from Hacker News (Y Combinator's tech community).
+    SOURCE: Hacker News (news.ycombinator.com) via Algolia search API.
+    BEST FOR: tech news, startup discussions, developer opinions, programming tools,
+    open source projects, AI/ML announcements, Silicon Valley trends.
+    SENTIMENT VALUE: High — HN comments contain strong developer opinions and debates.
+    NOT FOR: world politics, sports, entertainment, consumer product reviews."""
+    items = await fetch_hackernews(query, limit=12)
+    if not items:
+        return f"No Hacker News results found for '{query}'."
+
+    relevant, _ = await relevance_filter(query, items, "hackernews")
+    if not relevant:
+        return f"No relevant Hacker News results found for '{query}'."
+
+    sections: list[str] = []
+    for item in relevant:
+        title = item.get("title", "Untitled")
+        url = item.get("url", "")
+        body = item.get("body", "")
+        score = item.get("score", 0)
+        comments_text = _summarize_comments(item.get("comments", []))
+        sections.append(
+            f"### {title} (score: {score})\nURL: {url}\n{body}\n\n**Comments:**\n{comments_text}"
+        )
+
+    return (
+        f"# Hacker News Results for '{query}' ({len(sections)} stories)\n\n"
+        + "\n\n---\n\n".join(sections)
+    )
+
+
+async def fetch_devto_tool(ctx: RunContext, query: str) -> str:
+    """Fetch developer blog posts and discussions from Dev.to community.
+    SOURCE: Dev.to API (dev.to/api). Returns full article markdown + comments.
+    BEST FOR: developer tutorials, coding best practices, framework comparisons,
+    developer experience discussions, tech career topics, project showcases.
+    SENTIMENT VALUE: High — community reactions + threaded comments with opinions.
+    NOT FOR: breaking news, world politics, product reviews, non-tech topics."""
+    items = await fetch_devto(query, limit=10)
+    if not items:
+        return f"No Dev.to results found for '{query}'."
+
+    relevant, _ = await relevance_filter(query, items, "devto")
+    if not relevant:
+        return f"No relevant Dev.to results found for '{query}'."
+
+    sections: list[str] = []
+    for item in relevant:
+        title = item.get("title", "Untitled")
+        url = item.get("url", "")
+        body = _clean_text(item.get("body", "")[:500])
+        score = item.get("score", 0)
+        comments_text = _summarize_comments(item.get("comments", []))
+        sections.append(
+            f"### {title} (reactions: {score})\nURL: {url}\n{body}\n\n**Comments:**\n{comments_text}"
+        )
+
+    return (
+        f"# Dev.to Results for '{query}' ({len(sections)} articles)\n\n"
+        + "\n\n---\n\n".join(sections)
+    )
+
+
+async def fetch_stackexchange_tool(ctx: RunContext, query: str) -> str:
+    """Fetch Q&A from Stack Overflow / Stack Exchange.
+    SOURCE: Stack Overflow API (api.stackexchange.com).
+    BEST FOR: programming questions, technical troubleshooting, library/framework
+    comparisons, error messages, code examples, best practices.
+    SENTIMENT VALUE: Medium — vote scores indicate community consensus on answers.
+    NOT FOR: product reviews, news, opinions, non-technical topics."""
+    items = await fetch_stackexchange(query, limit=10)
+    if not items:
+        return f"No Stack Overflow results found for '{query}'."
+
+    relevant, _ = await relevance_filter(query, items, "stackexchange")
+    if not relevant:
+        return f"No relevant Stack Overflow results found for '{query}'."
+
+    sections: list[str] = []
+    for item in relevant:
+        title = item.get("title", "Untitled")
+        url = item.get("url", "")
+        body = _clean_text(item.get("body", "")[:500])
+        score = item.get("score", 0)
+        sections.append(f"### {title} (score: {score})\nURL: {url}\n{body}")
+
+    return (
+        f"# Stack Overflow Results for '{query}' ({len(sections)} questions)\n\n"
+        + "\n\n---\n\n".join(sections)
+    )
+
+
+async def fetch_guardian_tool(ctx: RunContext, query: str) -> str:
+    """Fetch full-text articles from The Guardian newspaper.
+    SOURCE: Guardian Content API (content.guardianapis.com). Returns complete article body.
+    BEST FOR: in-depth world news, politics, international relations, economics,
+    environment/climate, conflicts, trade policy, investigative journalism.
+    SENTIMENT VALUE: Low — factual journalism, no user comments. Use for information depth.
+    NOT FOR: programming questions, product reviews, tech community discussions."""
+    items = await fetch_guardian(query, limit=10)
+    if not items:
+        return f"No Guardian results found for '{query}'."
+
+    sections: list[str] = []
+    for item in items:
+        title = item.get("title", "Untitled")
+        url = item.get("url", "")
+        body = item.get("body", "")
+        sections.append(f"### {title}\nURL: {url}\n{body}")
+
+    return (
+        f"# The Guardian Results for '{query}' ({len(sections)} articles)\n\n"
+        + "\n\n---\n\n".join(sections)
+    )
+
+
+async def fetch_news_tool(ctx: RunContext, query: str) -> str:
+    """Fetch headlines and summaries from major news outlets via RSS feeds.
+    SOURCE: BBC World, Reuters, AP News, NPR, Al Jazeera, NYT (via RSS/RSSHub).
+    BEST FOR: breaking news, current events, broad news coverage across multiple outlets.
+    Provides breadth (many sources) but less depth than Guardian (summaries only).
+    SENTIMENT VALUE: Low — news summaries only, no user comments. Use for breadth.
+    NOT FOR: in-depth analysis, programming questions, product reviews."""
+    items = await fetch_news_rss(query, limit=10)
+
+    # Supplement with Currents API if RSS yields too few
+    if len(items) < 5:
+        currents_items = await fetch_currents_news(query, limit=10 - len(items))
+        items.extend(currents_items)
+
+    if not items:
+        return f"No news results found for '{query}'."
+
+    sections: list[str] = []
+    for item in items:
+        title = item.get("title", "Untitled")
+        url = item.get("url", "")
+        body = item.get("body", "")
+        source = item.get("source", "news")
+        sections.append(f"### [{source}] {title}\nURL: {url}\n{body}")
+
+    return (
+        f"# News Results for '{query}' ({len(sections)} articles)\n\n"
+        + "\n\n---\n\n".join(sections)
+    )
+
+
+async def search_web_tool(ctx: RunContext, query: str) -> str:
+    """Search the entire web using Tavily AI search engine.
+    SOURCE: Tavily search API — searches and curates results from across the web.
+    BEST FOR: topics not covered by other tools, niche subjects, discovering content
+    from sources not in our tool set, fact-checking, finding specific information.
+    USE AS FALLBACK: only when other specific tools don't cover what you need."""
+    items = await fetch_tavily(query, limit=10)
+    if not items:
+        return f"No web search results found for '{query}'."
+
+    sections: list[str] = []
+    for item in items:
+        title = item.get("title", "Untitled")
+        url = item.get("url", "")
+        body = item.get("body", "")
+        sections.append(f"### {title}\nURL: {url}\n{body}")
+
+    return (
+        f"# Web Search Results for '{query}' ({len(sections)} results)\n\n"
+        + "\n\n---\n\n".join(sections)
+    )
