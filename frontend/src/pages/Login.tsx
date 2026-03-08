@@ -13,6 +13,7 @@ import {
   Separator,
 } from '@chakra-ui/react';
 import { useAuth } from '../hooks/useAuth';
+import SEO from '../components/SEO';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -54,6 +55,7 @@ export default function Login() {
       flex={1}
       pt={{ base: 4, md: 0 }}
     >
+      <SEO title="Log In" description="Sign in to your SmIA account to access AI-powered social media analytics." />
       <Card.Root className="glass-panel" maxW="md" w="full">
         <Card.Header textAlign="center">
           <Heading size="xl" mb={1}>

@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /signup
+Disallow: /analyze
+Disallow: /dashboard
+Disallow: /reports/
+Disallow: /settings
+Disallow: /ai-daily-report
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://smia-agent.vercel.app/sitemap.xml
