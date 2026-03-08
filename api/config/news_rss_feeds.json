@@ -1,0 +1,11 @@
+{
+  "feeds": [
+    {"name": "BBC World", "url": "http://feeds.bbci.co.uk/news/world/rss.xml"},
+    {"name": "Reuters World", "url": "https://rsshub.app/reuters/world"},
+    {"name": "AP News", "url": "https://rsshub.app/apnews/topics/world-news"},
+    {"name": "The Guardian World", "url": "https://www.theguardian.com/world/rss"},
+    {"name": "Al Jazeera", "url": "https://www.aljazeera.com/xml/rss/all.xml"},
+    {"name": "NPR News", "url": "https://feeds.npr.org/1001/rss.xml"},
+    {"name": "NYT World", "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"}
+  ]
+}

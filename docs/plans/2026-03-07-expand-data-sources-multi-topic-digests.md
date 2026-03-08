@@ -1,577 +1,643 @@
-# Plan: Fly.io Migration + Expand Data Sources + Multi-Topic Digests
+# Plan: Expand Data Sources + Multi-Topic Digests
 
 ## Context
 
-SmIA currently runs on Vercel serverless (60s timeout). The backend needs to migrate to Fly.io first to remove timeout constraints, then expand data sources and digest topics.
+SmIA currently has 3 Analyze tools (Reddit, YouTube, Amazon) and 4 Digest collectors (arXiv, GitHub, RSS blogs, Bluesky) — all focused on AI/tech. The user wants to:
+1. **Analyze**: Add more data sources so PydanticAI can intelligently choose which to query based on user topic
+2. **Digest**: Expand from 1 AI-only daily digest to 4 independent topic digests (AI, Geopolitics, Climate, Health)
 
-**Execution order**: Fly.io migration → New features (no 60s worries, simpler digest pipeline)
+Discussed and decided in previous session (2026-03-07). Fly.io migration is complete. This is the next feature.
 
-**Scope decisions**:
-- **Fly.io migration first** — removes 60s limit, enables simpler digest pipeline (no 2-phase hack)
-- Add Currents API (600/day free) — skip Mediastack for now
-- Separate PydanticAI tools per source (showcases intelligent tool selection)
-- Use RSSHub public instance URLs in feed configs for broader coverage
-- 4 independent digest topics: AI, Geopolitics, Climate, Health
-- Each digest triggers on-demand (frontend dropdown or Telegram command)
-- Enable Firecrawl `fetch_web` tool for arbitrary URL scraping
-- Configurable LLM: GPT-4.1 (default) or DeepSeek, switchable via env var
-- No Reddit for programming queries (system prompt guidance)
-
-**Data volume strategy (no timeout worry on Fly.io)**:
-- Per-item truncation: body ≤400 chars, comments top 5 at ≤200 chars each
-- Per-tool item cap: max 10-12 items → ~4000-6000 chars per tool
-- System prompt: pick 2-4 tools, never all 8 → keeps LLM context manageable
-- No timeout pressure — even 90s+ analyze requests are fine
-
----
-
-## Phase 0: Fly.io Migration
-
-### 0.1. Remove Vercel serverless adapter
-
-**File**: `api/main.py`
-- Remove Mangum import and `handler = Mangum(app)` wrapper
-- Add uvicorn runner: `if __name__ == "__main__": uvicorn.run(app, host="0.0.0.0", port=8080)`
-- Keep all FastAPI routes, middleware, CORS config unchanged
-
-### 0.2. Dockerfile
-
-**File**: `Dockerfile` (new, project root)
-
-```dockerfile
-FROM python:3.12-slim
-WORKDIR /app
-
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-
-# Copy dependency files first (cache layer)
-COPY api/pyproject.toml api/uv.lock* ./api/
-COPY libs/ ./libs/
-
-# Install deps
-RUN cd api && uv sync --frozen --no-dev
-
-# Copy source
-COPY api/ ./api/
-COPY shared/ ./shared/
-COPY local.env* ./
-
-EXPOSE 8080
-CMD ["uv", "run", "--directory", "api", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
-```
-
-### 0.3. Fly.io config
-
-**File**: `fly.toml` (new, project root)
-
-```toml
-app = "smia-agent"
-primary_region = "sin"  # Singapore (close to user)
-
-[build]
-
-[http_service]
-  internal_port = 8080
-  force_https = true
-  auto_stop_machines = "stop"    # Scale to zero when idle
-  auto_start_machines = true     # Wake on request
-  min_machines_running = 0
-
-[[vm]]
-  memory = "256mb"
-  cpu_kind = "shared"
-  cpus = 1
-
-[checks]
-  [checks.health]
-    port = 8080
-    type = "http"
-    interval = "30s"
-    timeout = "5s"
-    path = "/api/health"
-```
-
-### 0.4. Health check endpoint
-
-**File**: `api/routes/health.py` (new, or add to existing main.py)
-- `GET /api/health` → `{"status": "ok"}`
-
-### 0.5. Deploy steps (manual)
-
-```bash
-# Install flyctl
-curl -L https://fly.io/install.sh | sh
-
-# Login & create app
-fly auth login
-fly launch --name smia-agent --region sin --no-deploy
-
-# Set secrets (from local.env)
-fly secrets set SUPABASE_URL=... SUPABASE_ANON_KEY=... OPENAI_API_KEY=... (etc)
-
-# Deploy
-fly deploy
-
-# Verify
-fly status
-curl https://smia-agent.fly.dev/api/health
-```
-
-### 0.6. Update frontend
-
-**File**: `frontend/.env.production`
-- Change `VITE_API_BASE=https://smia-agent.fly.dev/api` (or custom domain)
-
-### 0.7. Update Telegram webhook
-
-```bash
-curl "https://api.telegram.org/bot{TOKEN}/setWebhook?url=https://smia-agent.fly.dev/api/telegram/webhook&secret_token={SECRET}"
-```
-
-### 0.8. Remove Vercel backend config
-
-**File**: `vercel.json`
-- Remove `api/` route rewrites (keep frontend-only config)
-- Frontend stays on Vercel, backend on Fly.io
-
-### 0.9. Simplify digest pipeline
-
-**File**: `api/services/digest_service.py`
-- Remove 2-phase hack: no more HTTP trigger from Phase 1 to Phase 2
-- Merge into single function: `run_digest(digest_id)` — collectors → LLM → save, all in one call
-- Remove `/api/ai-daily-report/internal/analyze` and `/api/ai-daily-report/internal/collect` internal endpoints
-- Remove `INTERNAL_SECRET` dependency for digest pipeline
-- Use `asyncio.create_task()` for background execution instead of Vercel BackgroundTask
-
-### 0.10. Verification
-
-1. `curl https://smia-agent.fly.dev/api/health` → 200
-2. Frontend can call Fly.io backend (CORS works)
-3. Existing analyze works end-to-end
-4. Existing AI digest generates successfully
-5. Telegram bot responds to commands
-6. Run tests locally: `cd api && uv run python -m pytest -v`
+**Branch**: `expand-data-sources` (off `development`)
 
 ---
 
 ## Part A: New Analyze Tools
 
-### A1. New crawler functions
+### A1: New Crawler Functions
 
-**File**: `api/services/crawler.py` (append)
+**File**: `api/services/crawler.py` — add 5 new async functions
 
-4 new async functions following existing patterns (httpx, timeout, error handling):
+| Function | Source | API | Notes |
+|----------|--------|-----|-------|
+| `fetch_hackernews(query, limit=15)` | HN Algolia API | `http://hn.algolia.com/api/v1/search` | Free, no rate limit. Returns stories + comments. |
+| `fetch_devto(query, limit=10)` | Dev.to API | `https://dev.to/api/articles` | Free, no key needed. Filter by tag. Has `body_markdown` + comments API. |
+| `fetch_news_rss(query, feeds, limit=10)` | RSS feeds | feedparser | Reuse pattern from `rss_collector.py` (run_in_executor). Pass feed list. |
+| `fetch_stackexchange(query, limit=10)` | Stack Exchange API | `https://api.stackexchange.com/2.3/search` | 300/day without key, 10k/day with free key. Filter by `site=stackoverflow` |
+| `fetch_guardian(query, limit=10, section=None)` | Guardian Content API | `https://content.guardianapis.com/search` | 5000/day free, 12/sec. Returns full article text via `show-fields=bodyText`. API key: `GUARDIAN_API_KEY` |
 
-**`fetch_hackernews(query, limit=15)`**
-- HN Algolia API: `https://hn.algolia.com/api/v1/search?query=...&tags=story&hitsPerPage=N`
-- Free, no auth, no rate limit
-- Filter by `numericFilters=created_at_i>{unix_timestamp}` for time_range
-- For top 5 stories, fetch comments via `https://hn.algolia.com/api/v1/items/{objectID}`
-- Return `[{title, url, body, source: "hackernews", comments: [...]}]`
+Each returns `list[dict]` matching existing tool patterns (title, url, body/content, comments, score).
 
-**`fetch_news(query, limit=15)`**
-- **Primary**: Parse RSS feeds from `api/config/news_rss_feeds.json` (includes RSSHub URLs)
-- Reuse `feedparser` — same pattern as `api/services/collectors/rss_collector.py`
-- Filter by keyword match + time_range
-- **Supplement**: If RSS < 3 results and `currents_api_key` is set, call Currents API
-- Return `[{title, url, description, source: "news", published_at, extra: {provider: "rss"|"currents"}}]`
+### A2: News RSS Feed Config
 
-**`fetch_currents(query, limit=10, category=None)`**
-- Currents API: `https://api.currentsapi.services/v1/search?keywords=...&language=en&apiKey=...`
-- 600/day free. Supports language, country, category filters
-- Return `[{title, url, description, source: "currents", published_at}]`
-
-**`fetch_stackexchange(query, limit=15, site="stackoverflow")`**
-- Stack Exchange API v2.3: `https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance&q=...&site=...&filter=withbody`
-- No API key needed (300/day anonymous)
-- Return `[{title, url, body, score, source: "stackexchange", comments: [...]}]`
-
-### A2. Config changes
-
-**File**: `api/core/config.py`
-- Add `currents_api_key: str = ""`
-- Add `analyze_model: str = "gpt-4.1"` — configurable LLM for analyze agent
-- Add `deepseek_api_key: str = ""` — for DeepSeek model option
-
-**File**: `local.env`
-- Add `CURRENTS_API_KEY=<key>`
-- Add `ANALYZE_MODEL=gpt-4.1` (or `deepseek-chat` to switch)
-- Add `DEEPSEEK_API_KEY=<key>` (optional)
-
-**File**: `api/config/news_rss_feeds.json` (new)
+**File**: `api/config/news_rss_feeds.json` (NEW)
 
 ```json
 {
   "feeds": [
-    {"name": "BBC World", "url": "https://feeds.bbci.co.uk/news/world/rss.xml"},
-    {"name": "NYT World", "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"},
+    {"name": "BBC World", "url": "http://feeds.bbci.co.uk/news/world/rss.xml"},
+    {"name": "Reuters World", "url": "https://rsshub.app/reuters/world"},
+    {"name": "AP News", "url": "https://rsshub.app/apnews/topics/world-news"},
     {"name": "The Guardian World", "url": "https://www.theguardian.com/world/rss"},
     {"name": "Al Jazeera", "url": "https://www.aljazeera.com/xml/rss/all.xml"},
     {"name": "NPR News", "url": "https://feeds.npr.org/1001/rss.xml"},
-    {"name": "AP News (via RSSHub)", "url": "https://rsshub.app/apnews/topics/world-news"},
-    {"name": "Reuters (via RSSHub)", "url": "https://rsshub.app/reuters/world"},
-    {"name": "Zaobao World (via RSSHub)", "url": "https://rsshub.app/zaobao/realtime/world"}
+    {"name": "NYT World", "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"}
   ]
 }
 ```
 
-### A3. Configurable LLM model
+RSSHub public instance (`rsshub.app`) used for Reuters and AP News which don't have native RSS.
 
-**File**: `api/services/agent.py`
+### A3: Tool Design — One Tool Per Source, Rich Descriptions
 
-Replace hardcoded `_get_model_name()` with configurable model:
-- If `settings.analyze_model` starts with `deepseek`, use `openai:{model}` with DeepSeek base URL
-- PydanticAI supports OpenAI-compatible APIs via model override — DeepSeek's API is OpenAI-compatible
-- Set `OPENAI_API_KEY` to `deepseek_api_key` and `OPENAI_BASE_URL` to `https://api.deepseek.com` when using DeepSeek
-- Default: `openai:gpt-4.1` (current behavior, no change needed)
+**Design principle**: Each data source = one PydanticAI tool. The tool's docstring tells the LLM **what the source is**, **what topics it's best for**, and **when to use it**. PydanticAI uses these docstrings as tool descriptions for LLM tool selection.
+
+**Changes to existing tools**:
+- **Reddit (`fetch_reddit_tool`)**: DISABLED — YARS proxy limitations make it unreliable. Remove from agent tools list. Keep code for future re-enabling.
+- **Firecrawl (`fetch_web_tool`)**: Demoted to FALLBACK only — used when no other tool covers the source, or for scraping a specific known URL.
+
+**File**: `api/services/tools.py` — add 6 new tool functions, keep youtube + amazon + clean_noise
 
 ```python
-def _get_model_name() -> str:
-    return settings.analyze_model or "gpt-4.1"
+# === TECH / PROGRAMMING CATEGORY ===
 
-# In analyze_topic(), before running agent:
-if "deepseek" in settings.analyze_model:
-    os.environ["OPENAI_API_KEY"] = settings.deepseek_api_key
-    os.environ["OPENAI_BASE_URL"] = "https://api.deepseek.com"
-else:
-    os.environ.setdefault("OPENAI_API_KEY", settings.effective_openai_key)
+async def fetch_hackernews_tool(ctx: RunContext, query: str) -> str:
+    """Fetch discussions from Hacker News (Y Combinator's tech community).
+    SOURCE: Hacker News (news.ycombinator.com) via Algolia search API.
+    BEST FOR: tech news, startup discussions, developer opinions, programming tools,
+    open source projects, AI/ML announcements, Silicon Valley trends.
+    SENTIMENT VALUE: High — HN comments contain strong developer opinions and debates.
+    NOT FOR: world politics, sports, entertainment, consumer product reviews."""
+
+async def fetch_devto_tool(ctx: RunContext, query: str) -> str:
+    """Fetch developer blog posts and discussions from Dev.to community.
+    SOURCE: Dev.to API (dev.to/api). Returns full article markdown + comments.
+    BEST FOR: developer tutorials, coding best practices, framework comparisons,
+    developer experience discussions, tech career topics, project showcases.
+    SENTIMENT VALUE: High — community reactions (❤️) + threaded comments with opinions.
+    NOT FOR: breaking news, world politics, product reviews, non-tech topics."""
+
+async def fetch_stackexchange_tool(ctx: RunContext, query: str) -> str:
+    """Fetch Q&A from Stack Overflow / Stack Exchange.
+    SOURCE: Stack Overflow API (api.stackexchange.com).
+    BEST FOR: programming questions, technical troubleshooting, library/framework
+    comparisons, error messages, code examples, best practices.
+    SENTIMENT VALUE: Medium — vote scores indicate community consensus on answers.
+    NOT FOR: product reviews, news, opinions, non-technical topics."""
+
+# === NEWS / WORLD EVENTS CATEGORY ===
+
+async def fetch_guardian_tool(ctx: RunContext, query: str) -> str:
+    """Fetch full-text articles from The Guardian newspaper.
+    SOURCE: Guardian Content API (content.guardianapis.com). Returns complete article body.
+    BEST FOR: in-depth world news, politics, international relations, economics,
+    environment/climate, conflicts, trade policy, investigative journalism.
+    SENTIMENT VALUE: Low — factual journalism, no user comments. Use for information depth.
+    NOT FOR: programming questions, product reviews, tech community discussions."""
+
+async def fetch_news_tool(ctx: RunContext, query: str) -> str:
+    """Fetch headlines and summaries from major news outlets via RSS feeds.
+    SOURCE: BBC World, Reuters, AP News, NPR, Al Jazeera, NYT (via RSS/RSSHub).
+    BEST FOR: breaking news, current events, broad news coverage across multiple outlets.
+    Provides breadth (many sources) but less depth than Guardian (summaries only).
+    SENTIMENT VALUE: Low — news summaries only, no user comments. Use for breadth.
+    NOT FOR: in-depth analysis, programming questions, product reviews."""
+
+# === CROSS-CATEGORY (universal) ===
+
+# YouTube (existing) — add SENTIMENT VALUE annotation to docstring:
+# SENTIMENT VALUE: High — video comments contain diverse user opinions. Universal tool.
+
+# Amazon (existing) — add SENTIMENT VALUE annotation to docstring:
+# SENTIMENT VALUE: High — product reviews and ratings are pure sentiment data.
+
+# === GENERAL / FALLBACK CATEGORY ===
+
+async def search_web_tool(ctx: RunContext, query: str) -> str:
+    """Search the entire web using Tavily AI search engine.
+    SOURCE: Tavily search API — searches and curates results from across the web.
+    BEST FOR: topics not covered by other tools, niche subjects, discovering content
+    from sources not in our tool set, fact-checking, finding specific information.
+    USE AS FALLBACK: only when other specific tools don't cover what you need."""
+
+async def fetch_web_tool(ctx: RunContext, url: str) -> str:
+    """Scrape a specific web page by URL using Firecrawl.
+    SOURCE: Any URL — uses Firecrawl to extract clean markdown content.
+    BEST FOR: when you already know a specific URL that needs analysis.
+    NOT FOR: general search or discovery — use search_web_tool instead.
+    FALLBACK ONLY: use other tools first, this is for specific URL extraction."""
 ```
 
-### A4. New tool functions
+**Total active tools: 10** (youtube, amazon, clean_noise + hackernews, devto, stackexchange, guardian, news, search_web, web)
+- Reddit: disabled (YARS proxy issues)
+- Firecrawl: fallback only
+- YouTube: cross-category (universal, always available)
 
-**File**: `api/services/tools.py` (append 4 new tool functions)
-
-Follow existing `fetch_reddit_tool` pattern: `RunContext` signature, cache check, `relevance_filter`, adaptive refetch. Per-item truncation: body ≤400 chars, comments top 5 at ≤200 chars each.
-
-**`fetch_hackernews_tool(ctx: RunContext, query: str) -> str`**
-- Docstring: "Fetch Hacker News discussions. Best for: tech/startup news, developer opinions, Show HN projects, Y Combinator ecosystem."
-
-**`fetch_news_tool(ctx: RunContext, query: str) -> str`**
-- Docstring: "Fetch news articles from major outlets (BBC, NYT, Reuters, etc.) and Currents API. Best for: breaking news, current events, world affairs, politics, business, geopolitics."
-
-**`fetch_stackexchange_tool(ctx: RunContext, query: str) -> str`**
-- Docstring: "Fetch Stack Overflow / Stack Exchange Q&A. Best for: programming problems, technical questions, best practices, developer knowledge base."
-
-**`fetch_web_tool(ctx: RunContext, url: str) -> str`**
-- Docstring: "Scrape a specific URL using Firecrawl. Use ONLY as last resort when no other tool covers the needed source."
-- Takes URL (not query), NO relevance filter, truncate to 5000 chars
-- Reuses existing `_smart_fetch(url)` from crawler.py
-
-### A5. Register tools + update system prompt
+### A4: System Prompt — LLM Tool Selection Strategy
 
 **File**: `api/services/agent.py`
 
-- Import 4 new tools, add to `tools=[...]` in `create_agent()`
-- Update `SYSTEM_PROMPT`:
+Updated `SYSTEM_PROMPT` with explicit tool selection guidance:
 
 ```
-Tools available:
-- fetch_reddit_tool: User discussions, opinions, community reactions on any topic
-- fetch_youtube_tool: Video reviews, tutorials, commentary, visual content
-- fetch_amazon_tool: Product reviews, ratings, consumer sentiment
-- fetch_hackernews_tool: Tech/startup community, developer opinions, Show HN projects
-- fetch_news_tool: Breaking news, current events, world affairs, politics, business (BBC, NYT, Reuters, etc.)
-- fetch_stackexchange_tool: Technical Q&A, programming problems, best practices (Stack Overflow)
-- fetch_web_tool: Scrape a specific URL — last resort when no other tool covers the source
-- clean_noise_tool: Additional text cleanup if needed
+You are SmIA (Social Media Intelligence Agent), an expert analyst that fetches
+and analyzes information from multiple sources.
 
-Strategy — pick 2-4 tools most relevant to the query, do NOT call all tools:
-- Tech/startup topics → HN + Reddit + YouTube
-- Products/brands → Reddit + YouTube + Amazon
-- Current events/world affairs → News + HN + Reddit
-- Programming questions → Stack Exchange + HN (do NOT use Reddit for programming)
-- General research → Reddit + YouTube + News
-- Use fetch_web_tool only when you need a specific URL not covered by other tools.
+## TOOL SELECTION STRATEGY
+
+You have access to multiple data source tools. Choose 2-4 tools most relevant
+to the user's query. DO NOT call all tools — select based on the topic:
+
+### Tech / Programming / AI topics:
+→ Use: fetch_hackernews, fetch_devto, fetch_stackexchange, fetch_youtube
+→ Hacker News for tech news, developer opinions, startup discussions
+→ Dev.to for developer tutorials, framework comparisons, coding practices
+→ Stack Exchange for programming Q&A, technical troubleshooting
+→ YouTube for tech reviews, tutorials, conference talks
+
+### World News / Politics / Current Events:
+→ Use: fetch_guardian, fetch_news
+→ Guardian for in-depth journalism with full article text
+→ News RSS for broad coverage across BBC, Reuters, AP, etc.
+
+### Consumer Products / Shopping:
+→ Use: fetch_amazon, fetch_youtube
+→ Amazon for product reviews and ratings
+→ YouTube for product review videos
+
+### General / Niche / Mixed topics:
+→ Use: search_web (Tavily) as discovery tool
+→ Use: fetch_web (Firecrawl) only for specific known URLs
+
+### Rules:
+- Pick 2-4 tools, not all 10
+- YouTube is a universal tool — usable across ALL categories for sentiment via comments
+- If unsure, prefer Guardian + Hacker News (broadest coverage)
+- **Prefer tools with no/high API limits** (HN, Dev.to, News RSS = unlimited; Guardian = 5000/day)
+- **Deprioritize tools with tight API limits** (Tavily = ~33/day; Stack Exchange = 300/day without key)
+- Use search_web (Tavily) only as fallback when other tools don't fit
+- Use fetch_web (Firecrawl) only when you have a specific URL
+- NEVER use all tools at once — it wastes time and tokens
+
+## ANALYSIS INSTRUCTIONS
+[... existing analysis instructions for TrendReport output ...]
 ```
 
-### A6. Update schemas and cache config
+- Remove `fetch_reddit_tool` from tools list (disabled)
+- Update `source_breakdown` to include: `hackernews`, `devto`, `guardian`, `news_rss`, `stackexchange`, `tavily`
+- Update `TrendReport.source_breakdown` validation to accept new source keys
+- **Fix sentiment_timeline (bug)**: Add explicit `charts_data` format instructions to system prompt:
+  ```
+  charts_data: {
+    "sentiment_timeline": [{"date": "YYYY-MM-DD", "score": 0.0-1.0}, ...]
+    Generate sentiment scores grouped by date from the collected comments/posts.
+    Score 0.0 = very negative, 0.5 = neutral, 1.0 = very positive.
+  }
+  ```
+  Frontend (`ReportViewer.tsx`) already renders this — currently empty because LLM has no format instructions.
 
-**File**: `api/models/schemas.py`
-- Expand `TopDiscussion.source` Literal: add `"hackernews"`, `"news"`, `"currents"`, `"stackexchange"`, `"web"`
+### A5: Additional API Integrations
 
-**File**: `api/services/cache.py`
-- Add to `_FETCH_LIMITS`: `hackernews`, `news`, `stackexchange`, `web`
+**Dev.to API** (`api/services/crawler.py`):
+- `fetch_devto(query, limit=10)`
+- Articles endpoint: `GET https://dev.to/api/articles?tag={query}&per_page={limit}&top=7` (top 7 = last 7 days)
+- Comments endpoint: `GET https://dev.to/api/comments?a_id={article_id}`
+- Free, no API key needed
+- Returns: `body_markdown` (full content), `comments_count`, `public_reactions_count`, `tag_list`, `user`
+- Comments have threaded descendants
+- Fetch top articles → for each, fetch comments → return combined
 
-### A7. Tests
+**Guardian API** (`api/services/crawler.py`):
+- `fetch_guardian(query, limit=10, section=None)`
+- Endpoint: `https://content.guardianapis.com/search`
+- Params: `q`, `section`, `from-date`, `to-date`, `show-fields=headline,bodyText,byline,thumbnail`, `page-size`, `order-by=newest`
+- API key from env: `GUARDIAN_API_KEY`
+- Free: 5,000 calls/day, 12/sec — very generous
+- Returns full article text (unlike RSS which only has summaries)
 
-**File**: `api/tests/test_services/test_agent.py` — update tool name assertions
-**File**: `api/tests/test_services/test_tools.py` — add tests for each new tool with mocked crawlers
+**Tavily API** (`api/services/crawler.py`):
+- `fetch_tavily(query, limit=10, topic="general")`
+- Uses official `tavily-python` async client (`AsyncTavilyClient`)
+- Params: `topic="news"|"general"`, `time_range="day"|"week"`, `max_results`, `include_raw_content=False`
+- API key from env: `TAVILY_API_KEY`
+- Free: 1,000 credits/month (~33/day). Basic search = 1 credit
+- Use sparingly: only when LLM selects it as fallback/discovery tool
+
+**Currents API** (`api/services/crawler.py`):
+- `fetch_currents_news(query, limit=10)`
+- Endpoint: `https://api.currentsapi.services/v1/search`
+- Free: 600 calls/day
+- API key from env: `CURRENTS_API_KEY`
+- Used as supplement inside `fetch_news_tool` when RSS yields < 5 items
+- Skip gracefully if no API key configured
+
+**New dependency**: `tavily-python` in `api/pyproject.toml`
+
+### A6: Data Volume Strategy
+
+- Per-item content cap: body ≤ 400 chars, comments: top 5 at 200 chars each
+- Per-tool item cap: max 10-12 items
+- System prompt: "pick 2-4 tools, not all 10"
+- Result: ~15k-24k chars total input = 4k-6k tokens — well within GPT-4.1 context
+- Fetch phase runs in parallel (HN/RSS/SE/Guardian APIs are fast, <5s each)
+- Guardian returns full text — truncate `bodyText` to 400 chars per item in the tool
+- **New tools do NOT use fetch cache** (intentional): HN, Dev.to, Guardian, SE are fast free APIs. Per-request fetching is fine. Cache can be added later if needed.
+- Add `@observe` decorator (Langfuse) to all new crawler functions for tracing
 
 ---
 
 ## Part B: Multi-Topic Digests
 
-### Topic definitions
+### B1: Database Schema Changes
 
-| Topic ID | Display Name | Description | Collectors |
-|----------|-------------|-------------|------------|
-| `ai` | AI Intelligence | AI/ML ecosystem (existing) | arXiv, GitHub, RSS (AI blogs), Bluesky |
-| `geopolitics` | Geopolitics & Conflict | World politics, conflicts, with trade/economy impact | News RSS, Currents (world/politics), HN |
-| `climate` | Climate & Environment | Climate change, environment, energy policy | Climate RSS, Currents (environment) |
-| `health` | Health & Medical | Medical breakthroughs, disease, public health | Health RSS, Currents (health) |
-
-### B1. Per-topic RSS feed configs
-
-**File**: `api/config/news_rss_feeds.json` (already created in A2 — used by `geopolitics` topic)
-
-**File**: `api/config/climate_rss_feeds.json` (new)
-```json
-{
-  "feeds": [
-    {"name": "Guardian Climate", "url": "https://www.theguardian.com/environment/climate-crisis/rss"},
-    {"name": "Carbon Brief", "url": "https://www.carbonbrief.org/feed"},
-    {"name": "Climate.gov", "url": "https://www.climate.gov/rss.xml"},
-    {"name": "BBC Science & Environment", "url": "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml"},
-    {"name": "InsideClimate News", "url": "https://insideclimatenews.org/feed"}
-  ]
-}
-```
-
-**File**: `api/config/health_rss_feeds.json` (new)
-```json
-{
-  "feeds": [
-    {"name": "WHO News", "url": "https://www.who.int/rss-feeds/news-english.xml"},
-    {"name": "NIH News", "url": "https://www.nih.gov/news-events/news-releases/feed"},
-    {"name": "BBC Health", "url": "https://feeds.bbci.co.uk/news/health/rss.xml"},
-    {"name": "STAT News", "url": "https://www.statnews.com/feed/"},
-    {"name": "Medical News Today", "url": "https://rss.medicalnewstoday.com/featurednews.xml"}
-  ]
-}
-```
-
-### B2. Database migration
-
-**File**: `api/migrations/003_add_digest_topic.sql` (new)
+**File**: `api/migrations/` — new migration SQL
 
 ```sql
--- Add topic column to daily_digests
-ALTER TABLE daily_digests ADD COLUMN topic VARCHAR(50) DEFAULT 'ai' NOT NULL;
+-- Add topic column to daily_digests (default 'ai' for existing data)
+ALTER TABLE daily_digests ADD COLUMN topic TEXT NOT NULL DEFAULT 'ai';
+
+-- Remove unique constraint on digest_date, add composite unique
 ALTER TABLE daily_digests DROP CONSTRAINT IF EXISTS daily_digests_digest_date_key;
 ALTER TABLE daily_digests ADD CONSTRAINT daily_digests_date_topic_key UNIQUE (digest_date, topic);
 
--- Add topic column to digest_collector_cache
-ALTER TABLE digest_collector_cache ADD COLUMN topic VARCHAR(50) DEFAULT 'ai' NOT NULL;
+-- Add topic to collector cache
+ALTER TABLE digest_collector_cache ADD COLUMN topic TEXT NOT NULL DEFAULT 'ai';
 ALTER TABLE digest_collector_cache DROP CONSTRAINT IF EXISTS digest_collector_cache_digest_date_source_key;
 ALTER TABLE digest_collector_cache ADD CONSTRAINT digest_collector_cache_date_source_topic_key UNIQUE (digest_date, source, topic);
 
--- Update claim_digest_generation RPC to accept topic
-CREATE OR REPLACE FUNCTION claim_digest_generation(p_date DATE, p_topic VARCHAR DEFAULT 'ai')
-RETURNS JSONB ... (same logic but WHERE digest_date = p_date AND topic = p_topic)
+-- Update RPC to accept topic parameter (MUST return JSONB — callers depend on {claimed, digest_id, current_status})
+CREATE OR REPLACE FUNCTION claim_digest_generation(p_date DATE, p_topic TEXT DEFAULT 'ai')
+RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE v_id UUID; v_status TEXT;
+BEGIN
+    -- 1. Reclaim stale locks (crashed generators, 150s timeout)
+    UPDATE daily_digests SET status = 'failed', updated_at = NOW()
+    WHERE digest_date = p_date AND topic = p_topic
+      AND status IN ('collecting', 'analyzing')
+      AND updated_at < NOW() - INTERVAL '150 seconds';
+
+    -- 2. Atomic claim: insert OR reclaim failed
+    INSERT INTO daily_digests (digest_date, topic, status, updated_at)
+    VALUES (p_date, p_topic, 'collecting', NOW())
+    ON CONFLICT (digest_date, topic) DO UPDATE
+      SET status = 'collecting', updated_at = NOW()
+      WHERE daily_digests.status = 'failed'
+    RETURNING id INTO v_id;
+
+    -- 3. Did we win?
+    IF v_id IS NOT NULL THEN
+        RETURN jsonb_build_object('claimed', true, 'digest_id', v_id, 'current_status', 'collecting');
+    ELSE
+        SELECT d.id, d.status INTO v_id, v_status
+        FROM daily_digests d WHERE d.digest_date = p_date AND d.topic = p_topic;
+        RETURN jsonb_build_object('claimed', false, 'digest_id', v_id, 'current_status', v_status);
+    END IF;
+END;
+$$;
 ```
 
-Run via Supabase MCP.
+### B2: Topic Configuration
 
-### B3. Topic-aware collector registry
+**File**: `api/config/digest_topics.py` (NEW)
 
-**File**: `api/services/collectors/base.py`
-- Add `topics: list[str]` to `Collector` Protocol
-- Add `get_collectors_for_topic(topic: str) -> dict[str, Collector]` helper
+```python
+DIGEST_TOPICS = {
+    "ai": {
+        "display_name": "AI Intelligence",
+        "collectors": ["arxiv", "github", "rss", "bluesky"],
+        "categories": ["Breakthrough", "Research", "Tooling", "Open Source",
+                       "Infrastructure", "Product", "Policy", "Safety", "Other"],
+        "rss_config": "rss_feeds.json",  # existing AI blogs
+    },
+    "geopolitics": {
+        "display_name": "Geopolitics & Conflict",
+        "collectors": ["guardian", "news_rss", "currents", "hackernews"],
+        "categories": ["Conflict & Security", "Diplomacy", "Trade & Sanctions",
+                       "Political Change", "Regional Tensions", "Other"],
+        "rss_config": "news_rss_feeds.json",
+        "guardian_sections": ["world", "politics"],
+        "guardian_keywords": ["conflict", "diplomacy", "sanctions", "war"],
+    },
+    "climate": {
+        "display_name": "Climate & Environment",
+        "collectors": ["guardian", "climate_rss", "currents"],
+        "categories": ["Policy & Regulation", "Extreme Weather", "Energy Transition",
+                       "Research & Data", "Activism & Society", "Other"],
+        "rss_config": "climate_rss_feeds.json",
+        "guardian_sections": ["environment"],
+        "guardian_keywords": ["climate", "energy", "emissions", "renewable"],
+    },
+    "health": {
+        "display_name": "Health & Medical",
+        "collectors": ["health_rss", "currents"],
+        "categories": ["Breakthrough", "Disease & Outbreak", "Drug & Treatment",
+                       "Public Health Policy", "Research", "Other"],
+        "rss_config": "health_rss_feeds.json",
+    },
+}
+```
 
-Update existing collectors:
-- `arxiv_collector.py` — `topics = ["ai"]`
-- `github_collector.py` — `topics = ["ai"]`
-- `rss_collector.py` — `topics = ["ai"]`
-- `bluesky_collector.py` — `topics = ["ai"]`
+### B3: New Digest Collectors
 
-### B4. New collectors
+**Files**: `api/services/collectors/` — new collector files
 
-**File**: `api/services/collectors/news_rss_collector.py` (new)
-- `NewsRssCollector` — parameterized by feed config file
-- Create 3 instances registered with different topics:
-  - `NewsRssCollector(name="news_rss", config="news_rss_feeds.json", topics=["geopolitics"])`
-  - `NewsRssCollector(name="climate_rss", config="climate_rss_feeds.json", topics=["climate"])`
-  - `NewsRssCollector(name="health_rss", config="health_rss_feeds.json", topics=["health"])`
-- Same feedparser pattern as `rss_collector.py`, fetches last 48h
+**Parameterized RSS collector** (eliminates 3 duplicate files):
+```python
+# api/services/collectors/rss_collector.py — refactor existing class
+class RssCollector:
+    def __init__(self, name: str, config_file: str):
+        self.name = name
+        self._config_file = config_file
+    async def collect(self) -> list[RawCollectorItem]: ...
+```
+- Existing AI RSS: `RssCollector("rss", "rss_feeds.json")` (no change in behavior)
+- News RSS: `RssCollector("news_rss", "news_rss_feeds.json")`
+- Climate RSS: `RssCollector("climate_rss", "climate_rss_feeds.json")`
+- Health RSS: `RssCollector("health_rss", "health_rss_feeds.json")`
 
-**File**: `api/services/collectors/currents_collector.py` (new)
-- `CurrentsCollector` — parameterized by Currents API category
-- Create 3 instances:
-  - `CurrentsCollector(name="currents_world", category="world,politics", topics=["geopolitics"])`
-  - `CurrentsCollector(name="currents_climate", category="environment,science", topics=["climate"])`
-  - `CurrentsCollector(name="currents_health", category="health", topics=["health"])`
-- Skip gracefully if `currents_api_key` not set
+**Parameterized Guardian collector**:
+```python
+# api/services/collectors/guardian_collector.py
+class GuardianCollector:
+    def __init__(self, name: str, sections: list[str], keywords: list[str] | None = None):
+        self.name = name
+        self._sections = sections
+        self._keywords = keywords
+    async def collect(self) -> list[RawCollectorItem]: ...
+```
+- Geopolitics: `GuardianCollector("guardian", sections=["world", "politics"], keywords=["conflict", "diplomacy"])`
+- Climate: `GuardianCollector("guardian_climate", sections=["environment"], keywords=["climate", "energy"])`
 
-**File**: `api/services/collectors/hackernews_collector.py` (new)
-- `HackerNewsCollector` with `topics = ["geopolitics", "ai"]`
-- HN top stories via Firebase API, top 30 in parallel
-- For geopolitics: filter out Ask HN, Show HN
+**Other new collectors** (unique logic, separate files):
 
-**File**: `api/services/collectors/__init__.py`
-- Import all new collector modules
+| Collector | File | Source |
+|-----------|------|--------|
+| `hackernews` | `hackernews_collector.py` | HN Algolia API — top stories, 24h |
+| `currents` | `currents_collector.py` | Currents API — by category param |
 
-### B5. Topic-aware digest pipeline
+**New RSS configs**:
+- `api/config/news_rss_feeds.json`: BBC, Reuters, AP, Guardian, Al Jazeera, NPR, NYT
+- `api/config/climate_rss_feeds.json`: Guardian Climate, Carbon Brief, Climate.gov, BBC Science, InsideClimate News
+- `api/config/health_rss_feeds.json`: WHO, NIH, BBC Health, STAT News, Medical News Today
 
-**File**: `api/services/digest_service.py`
+### B4: Topic-Aware Digest Pipeline
 
-With Fly.io, the pipeline is simplified (single-phase, no HTTP trigger):
-- `claim_or_get_digest(user_id, access_token, topic="ai")` → pass `p_topic` to RPC
-- `run_digest(digest_id, topic="ai")` → single function: collect → analyze → save
-  - Use `get_collectors_for_topic(topic)` to get relevant collectors
-  - Run collectors in parallel via `asyncio.gather()`
-  - Cache collector results in `digest_collector_cache`
-  - Call digest agent with collected items
-  - Save completed digest
-- No more `run_collectors_phase` + `_trigger_analysis_phase` + `run_analysis_phase` split
-- Background execution via `asyncio.create_task(run_digest(...))`
+**File**: `api/services/digest_service.py` — modify existing functions
 
-### B6. Topic-specific digest agent prompts
+- `claim_or_get_digest(user_id, access_token, topic="ai")` — add topic param
+  - Line 38: pass `{"p_date": today, "p_topic": topic}` to RPC (currently only `p_date`)
+  - Staleness recovery (lines 44-72) is fine — it uses `digest_id` from RPC result, already topic-scoped
+- `run_digest(digest_id, topic="ai")` — filter collectors by topic config
+- **Cache upsert**: change `on_conflict="digest_date,source"` → `on_conflict="digest_date,source,topic"` and pass `topic` column in upsert data
+- **Hardcoded model**: change `"model_used": "gpt-4.1"` → `"model_used": settings.DIGEST_MODEL`
+- **Telegram notification**: pass topic display_name to `_notify_telegram` → "Your {display_name} digest is ready"
 
-**File**: `api/services/digest_agent.py`
+**Topic threading (complete data flow)**:
+```
+Frontend: getTodayDigest(topic) → GET /today?topic=geo
+  → Route: claim_or_get_digest(user_id, token, topic="geopolitics")
+    → RPC: claim_digest_generation(p_date, p_topic="geopolitics")
+    → if claimed: asyncio.create_task(run_digest(digest_id, topic="geopolitics"))
+      → get_collectors_for_topic("geopolitics") → [guardian, news_rss, currents, hn]
+      → _run_collectors(collectors, topic) → cache with (date, source, topic)
+      → analyze_digest(items, topic="geopolitics") → topic-specific categories
+      → save to DB with topic="geopolitics"
+```
 
-Add `topic` param to `analyze_digest(items, topic="ai")`. Each topic gets its own system prompt:
+**Collector factory** (replaces global `COLLECTOR_REGISTRY` for topic-specific collectors):
+```python
+# In digest_service.py or new file api/services/collector_factory.py
+from config.digest_topics import DIGEST_TOPICS
 
-**AI** (existing): Categories — Breakthrough, Research, Tooling, Open Source, Infrastructure, Product, Policy, Safety, Other
+# Split into two dicts: simple (no config) vs parameterized (needs topic config)
+SIMPLE_COLLECTORS = {
+    "arxiv": lambda: ArxivCollector(),
+    "github": lambda: GithubCollector(),
+    "bluesky": lambda: BlueskyCollector(),
+    "hackernews": lambda: HackernewsCollector(),
+    "currents": lambda: CurrentsCollector(),
+}
 
-**Geopolitics**: Categories — Conflict & Security, Diplomacy, Trade & Sanctions, Political Change, Regional Tensions, Other
-- Importance: 5 = global conflict/crisis, 4 = major diplomatic shift, 3 = notable development, 2 = ongoing situation update, 1 = minor
+PARAMETERIZED_COLLECTORS = {
+    "rss": lambda cfg: RssCollector("rss", cfg.get("rss_config", "rss_feeds.json")),
+    "news_rss": lambda cfg: RssCollector("news_rss", "news_rss_feeds.json"),
+    "climate_rss": lambda cfg: RssCollector("climate_rss", "climate_rss_feeds.json"),
+    "health_rss": lambda cfg: RssCollector("health_rss", "health_rss_feeds.json"),
+    "guardian": lambda cfg: GuardianCollector(
+        "guardian",
+        sections=cfg.get("guardian_sections", ["world"]),
+        keywords=cfg.get("guardian_keywords"),
+    ),
+}
 
-**Climate**: Categories — Policy & Regulation, Extreme Weather, Energy Transition, Research & Data, Activism & Society, Other
-- Importance: 5 = global climate milestone, 4 = major policy/disaster, 3 = notable finding, 2 = incremental, 1 = minor
+def get_collectors_for_topic(topic: str) -> list[Collector]:
+    """Instantiate collectors for a given topic from DIGEST_TOPICS config."""
+    topic_cfg = DIGEST_TOPICS[topic]
+    collectors = []
+    for name in topic_cfg["collectors"]:
+        if name in SIMPLE_COLLECTORS:
+            collectors.append(SIMPLE_COLLECTORS[name]())
+        elif name in PARAMETERIZED_COLLECTORS:
+            collectors.append(PARAMETERIZED_COLLECTORS[name](topic_cfg))
+        else:
+            logger.warning(f"Unknown collector: {name}")
+    return collectors
+```
 
-**Health**: Categories — Breakthrough, Disease & Outbreak, Drug & Treatment, Public Health Policy, Research, Other
-- Importance: 5 = pandemic-level / major breakthrough, 4 = significant finding, 3 = notable development, 2 = incremental, 1 = minor
+- `_run_collectors(topic)` calls `get_collectors_for_topic(topic)` instead of iterating `COLLECTOR_REGISTRY`
+- Existing AI collectors keep working via `COLLECTOR_REGISTRY` (backward compat) but are also accessible via factory
+- B4 is backward-compatible via `topic="ai"` defaults — B6/B7 are required to actually USE multi-topic
 
-**File**: `api/models/digest_schemas.py`
-- `DigestItem.category`: change to `str` (categories vary by topic)
-- Add `topic: str = "ai"` to `DailyDigestDB`
+### B5: Topic-Aware Digest Agent
 
-### B7. API routes
+**File**: `api/services/digest_agent.py` — dynamic agent per topic (方案 B)
+
+- `analyze_digest(items, topic="ai")` — accept topic parameter
+- **Remove module-level singleton** `digest_agent = Agent(...)`
+- **Create agent dynamically** per topic — `Agent()` is a lightweight config object (zero network overhead):
+  ```python
+  def _create_digest_agent(topic: str) -> Agent:
+      topic_cfg = DIGEST_TOPICS[topic]
+      categories = " | ".join(topic_cfg["categories"])
+      prompt = f"You are a {topic_cfg['display_name']} analyst...\nCategories: {categories}\n..."
+      return Agent(
+          model=f"openai:{settings.DIGEST_MODEL}",
+          output_type=DailyDigestLLMOutput,
+          system_prompt=prompt, retries=2, defer_model_check=True,
+      )
+
+  async def analyze_digest(items, topic="ai"):
+      agent = _create_digest_agent(topic)
+      result = await agent.run(f"Analyze these {len(items)} items:\n\n{items_text}")
+      return result.output
+  ```
+- Each topic gets its own system prompt with topic-specific categories, importance criteria, and focus areas
+- `DailyDigestLLMOutput.top_highlights`: relax `min_length=3` → `min_length=1` to handle light news days
+
+### B6: API Route Updates
 
 **File**: `api/routes/ai_daily_report.py`
-- `GET /api/ai-daily-report/today?topic=ai` — pass to `claim_or_get_digest`
-- `GET /api/ai-daily-report/list?topic=ai` — filter by topic
-- Remove `/internal/analyze` and `/internal/collect` (no longer needed after Fly.io migration)
-- Validate topic is one of: `ai`, `geopolitics`, `climate`, `health`
 
-### B8. Telegram commands
+- `GET /api/ai-daily-report/today?topic=ai` — add topic query param (default "ai")
+  - Extract `topic` from query → pass to `claim_or_get_digest(user_id, token, topic=topic)`
+  - Pass `topic` to `run_digest(digest_id, topic=topic)` in `asyncio.create_task()`
+- `GET /api/ai-daily-report/list?topic=ai` — filter by topic, add `topic` to select clause
+- `GET /api/ai-daily-report/topics` — return available topics list from `DIGEST_TOPICS`
+- All existing endpoints get optional `topic` param, backward-compatible
+
+**File**: `frontend/src/lib/api.ts`
+- `getTodayDigest(topic?: string)` — append `?topic=${topic}` to endpoint
+- `listDigests(topic?: string, ...)` — same
+
+### B7: Telegram Commands
 
 **File**: `api/services/telegram_service.py`
 
-- `/digest` or `/digest_ai` — AI digest (backward compatible)
-- `/digest_geo` — Geopolitics & Conflict digest
-- `/digest_climate` — Climate digest
-- `/digest_health` — Health & Medical digest
-- All call `claim_or_get_digest(user_id, token, topic=...)` with respective topic
-- Update help text
+| Command | Topic |
+|---------|-------|
+| `/digest` or `/digest_ai` | AI Intelligence |
+| `/digest_geo` | Geopolitics & Conflict |
+| `/digest_climate` | Climate & Environment |
+| `/digest_health` | Health & Medical |
 
-### B9. Frontend — Topic dropdown
+### B8: Frontend Topic Switcher
 
 **File**: `frontend/src/pages/AiDailyReport.tsx`
-- Replace heading with a dropdown/select or segmented control:
-  - "AI Intelligence" | "Geopolitics & Conflict" | "Climate & Environment" | "Health & Medical"
-- `useState<'ai' | 'geopolitics' | 'climate' | 'health'>('ai')`
-- Pass `?topic=${topic}` to API
-- Re-fetch on topic change
-- Dynamic heading based on selected topic
-- Realtime subscription scoped to current digest_id
 
-**File**: `frontend/src/lib/api.ts`
-- `getTodayDigest(topic?: string)` — add topic param
-- `getDigestHistory(page, perPage, topic?)` — add topic param
+- Add dropdown/tabs at top of Digest page for topic selection
+- Pass `topic` query param to API calls
+- Update realtime subscription to filter by topic
+- Each topic shows its own categories in KanbanBoard
 
-**File**: `frontend/src/pages/AiDailyReportHistory.tsx`
-- Same topic dropdown, filter history by topic
+### B9a: Digest Trigger Strategy
 
-**File**: `frontend/src/components/digest/KanbanBoard.tsx`
-- Verify category columns are dynamically derived from data (not hardcoded)
-- If hardcoded, make dynamic
+All topics use **lazy triggering** (same as current AI digest):
+- First user to visit `/today?topic=X` triggers that topic's generation
+- Subsequent users see the cached result
+- This is acceptable for MVP — low traffic, each topic generates in <2 min
+- Future optimization: add cron job to pre-generate all topics at 6am UTC
 
-### B10. Tests
+### B9: Configurable LLM Model
 
-**File**: `api/tests/test_services/test_digest_service.py`
-- Existing tests: pass `topic="ai"` explicitly
-- New tests: `topic="geopolitics"`, `topic="climate"`, `topic="health"`
+**File**: `api/core/config.py` + `api/services/digest_agent.py` + `api/services/agent.py`
+
+- Add `ANALYSIS_MODEL` env var (default: `gpt-4.1`)
+- Add `DIGEST_MODEL` env var (default: `gpt-4.1`)
+- Enables future DeepSeek switch without code changes
+
+---
+
+## Critical Fixes (from fullstack review)
+
+These must be addressed during implementation to prevent runtime failures:
+
+### F1: Widen `TopDiscussion.source` type
+- **File**: `api/models/schemas.py` line 11 — change `Literal["reddit", "youtube", "amazon"]` → `str`
+- **File**: `shared/types.ts` line 6 — change `'reddit' | 'youtube' | 'amazon'` → `string`
+- Without this, Pydantic rejects any analysis using new tools (hackernews, guardian, etc.)
+
+### F2: Widen `CategoryType` for multi-topic digests
+- **File**: `api/models/digest_schemas.py` lines 25-28 — change `CategoryType = Literal[...]` → `str`
+- **File**: `shared/types.ts` line 78-87 — change `DigestCategory` union → `string`
+- Without this, non-AI categories like "Conflict & Security" fail Pydantic validation
+- Categories are enforced via system prompt per topic, not schema validation
+
+### F3: Add `topic` field to DailyDigest types
+- **File**: `api/models/digest_schemas.py` `DailyDigestDB` — add `topic: str = "ai"`
+- **File**: `shared/types.ts` `DailyDigest` — add `topic: string`
+- Frontend topic switcher needs this to know which digest belongs to which topic
+
+### F4: Collector registry → runtime topic config
+- **Problem**: `COLLECTOR_REGISTRY` is keyed by `name`. Can't register two `guardian` collectors with different configs
+- **Solution**: Don't use registry for topic-specific collectors. Instead, `run_digest(topic)` creates collector instances at runtime from `DIGEST_TOPICS[topic].collectors` config, passing topic-specific params
+- Keep `COLLECTOR_REGISTRY` for backward compat with existing AI collectors, but new collectors are instantiated per-topic
+
+### F5: Add new API keys to Settings
+- **File**: `api/core/config.py` — add `GUARDIAN_API_KEY`, `TAVILY_API_KEY`, `CURRENTS_API_KEY` as optional fields
+- All must degrade gracefully when missing (skip that source, don't crash)
+
+### F6: KanbanBoard dynamic categories
+- **File**: `frontend/src/components/digest/KanbanBoard.tsx` — receive category config from props or `/topics` endpoint
+- Don't hardcode `CATEGORY_ORDER` and `CATEGORY_COLORS` — derive from topic config
+- Default color palette for unknown categories
+
+### F7: Realtime subscription topic-aware
+- **File**: `frontend/src/pages/AiDailyReport.tsx` — on topic switch, unsubscribe old subscription, re-fetch, subscribe to new digest
 
 ---
 
 ## Implementation Order
 
-**Phase 0: Fly.io Migration**
-1. **0.1-0.4**: Remove Mangum, Dockerfile, fly.toml, health endpoint
-2. **0.5**: Deploy to Fly.io + set secrets
-3. **0.6-0.8**: Update frontend API base, Telegram webhook, Vercel config
-4. **0.9**: Simplify digest pipeline (remove 2-phase hack)
-5. **0.10**: Verify everything works on Fly.io
+0. **Fix CLI**: Fix `api/cli/run_digest.py` stale imports (`run_collectors_phase`, `run_analysis_phase` no longer exist). Update to call current `run_digest()` with `--topic` arg. Do this first as a prerequisite — it's already broken.
+1. **F1-F2**: Widen `TopDiscussion.source` + `CategoryType` to `str` (schemas + types.ts)
+2. **A1-A2**: New crawler functions + RSS config files
+3. **A3-A4**: New tool functions + agent registration + system prompt (incl. sentiment_timeline fix)
+4. **A5**: Additional API integrations (Dev.to, Guardian, Tavily, Currents)
+5. **F5 + B9**: Add API keys + configurable LLM model to Settings
+6. **A6**: Tests for new tools
+7. **B1 + F3**: DB migration (topic column) + add `topic` to DailyDigest types
+8. **B2-B3 + F4**: Topic config + new collectors + RSS configs (runtime instantiation, not registry)
+9. **B4-B5**: Topic-aware pipeline + agent (collector factory uses split dicts pattern, not try/except)
+10. **B6**: API route updates (incl. `/topics` endpoint)
+11. **F6-F7 + B8**: Frontend topic switcher + dynamic KanbanBoard + topic-aware subscription
+12. **B7**: Telegram commands
 
-**Phase 1: New Analyze Tools**
-6. **A1-A2**: Crawler functions + config (currents key, model config, RSS feeds)
-7. **A3**: Configurable LLM model support
-8. **A4-A6**: Tool functions + agent registration + schemas + cache
-9. **A7**: Analyze tests
+---
 
-**Phase 2: Multi-Topic Digests**
-10. **B1-B2**: RSS feed configs + DB migration
-11. **B3-B4**: Collector registry + new collectors
-12. **B5-B6**: Digest pipeline + topic-specific prompts
-13. **B7**: API route changes
-14. **B8**: Telegram commands
-15. **B9**: Frontend topic dropdown
-16. **B10**: Digest tests
+## Files Summary
+
+### New Files (~14)
+| File | Purpose |
+|------|---------|
+| `api/config/news_rss_feeds.json` | General news RSS feeds |
+| `api/config/climate_rss_feeds.json` | Climate/environment RSS feeds |
+| `api/config/health_rss_feeds.json` | Health/medical RSS feeds |
+| `api/config/digest_topics.py` | Topic definitions (collectors, categories, prompts) |
+| `api/services/collectors/guardian_collector.py` | Guardian API collector (parameterized: sections, keywords) |
+| `api/services/collectors/hackernews_collector.py` | HN collector |
+| `api/services/collectors/currents_collector.py` | Currents API collector |
+| `api/services/collector_factory.py` | Topic → collector instances factory |
+| `api/migrations/XXX_add_digest_topics.sql` | DB migration |
+| `api/tests/test_tools_hackernews.py` | HN tool tests |
+| `api/tests/test_tools_news.py` | News tool tests |
+| `api/tests/test_tools_devto.py` | Dev.to tool tests |
+| `api/tests/test_tools_guardian.py` | Guardian tool tests |
+| `api/tests/test_tools_stackexchange.py` | SE tool tests |
+
+Note: `news_rss`, `climate_rss`, `health_rss` collectors are instances of the refactored `RssCollector(name, config_file)` — no separate files needed.
+
+### Modified Files (~18)
+| File | Changes |
+|------|---------|
+| `api/models/schemas.py` | F1: Widen `TopDiscussion.source` to `str` |
+| `api/models/digest_schemas.py` | F2: Widen `CategoryType` to `str`; F3: Add `topic` to `DailyDigestDB`; relax `top_highlights` min_length |
+| `shared/types.ts` | F1/F2/F3: Widen source/category types, add `topic` to `DailyDigest` |
+| `api/services/crawler.py` | Add `fetch_hackernews`, `fetch_devto`, `fetch_news_rss`, `fetch_stackexchange`, `fetch_guardian`, `fetch_tavily`, `fetch_currents_news` |
+| `api/services/tools.py` | Add 7 new tool functions |
+| `api/pyproject.toml` | Add `tavily-python` dependency |
+| `api/services/agent.py` | Register new tools, update system prompt, fix sentiment_timeline |
+| `api/services/digest_service.py` | Topic-aware pipeline, cache upsert with topic, use collector factory, topic in notification |
+| `api/services/digest_agent.py` | Dynamic agent creation per topic (方案 B), topic-specific system prompt |
+| `api/services/collectors/__init__.py` | Import new collectors |
+| `api/services/collectors/rss_collector.py` | Refactor to parameterized `RssCollector(name, config_file)` |
+| `api/routes/ai_daily_report.py` | Add topic param + `/topics` endpoint, pass topic to run_digest |
+| `api/services/telegram_service.py` | New digest commands + topic-aware notification message |
+| `api/core/config.py` | Add API keys (F5) + model config env vars |
+| `api/cli/run_digest.py` | Fix stale imports, add `--topic` CLI arg |
+| `frontend/src/lib/api.ts` | Add `topic` param to `getTodayDigest()` and `listDigests()` |
+| `frontend/src/pages/AiDailyReport.tsx` | Topic switcher + topic-aware subscription (F7) |
+| `frontend/src/components/digest/KanbanBoard.tsx` | F6: Dynamic categories from props |
 
 ---
 
 ## Verification
 
-### Phase 0: Fly.io
-1. `curl https://smia-agent.fly.dev/api/health` → 200
-2. Frontend calls Fly.io backend (CORS, auth all work)
-3. Existing analyze + digest work end-to-end on Fly.io
-4. Telegram bot responds on new webhook URL
-5. `cd api && uv run python -m pytest -v` — all existing tests pass
-
-### Phase 1: Analyze
-1. `cd api && uv run python -m pytest tests/test_services/test_agent.py tests/test_services/test_tools.py -v`
-2. Test: "Ukraine war" → News + Reddit + HN (no Stack Exchange)
-3. Test: "Python async" → Stack Exchange + HN (no Reddit per prompt guidance)
-4. Test: "iPhone 16 review" → Reddit + YouTube + Amazon
-5. Langfuse traces: confirm tool selection matches guidance
-6. Switch `ANALYZE_MODEL=deepseek-chat` + test same queries
-
-### Phase 2: Digest
-1. Run migration (existing digests get `topic='ai'`)
-2. `GET /api/ai-daily-report/today?topic=ai` — existing behavior
-3. `GET /api/ai-daily-report/today?topic=geopolitics` — single-phase pipeline
-4. `GET /api/ai-daily-report/today?topic=climate` — climate pipeline
-5. `GET /api/ai-daily-report/today?topic=health` — health pipeline
-6. Telegram: `/digest_ai`, `/digest_geo`, `/digest_climate`, `/digest_health`
-7. Frontend: dropdown switches between all 4 topics
-8. `cd api && uv run python -m pytest tests/test_services/test_digest_service.py -v`
-
----
-
-## Key Files Summary
-
-| File | Action | Purpose |
-|------|--------|---------|
-| `api/main.py` | Modify | Remove Mangum, add uvicorn runner |
-| `Dockerfile` | New | Python 3.12 + uv + deps |
-| `fly.toml` | New | Fly.io config (sin region, scale-to-zero) |
-| `api/routes/health.py` | New | Health check endpoint |
-| `frontend/.env.production` | Modify | Point API to Fly.io |
-| `vercel.json` | Modify | Remove backend routes |
-| `api/services/crawler.py` | Append | 4 new crawler functions (HN, news, currents, SE) |
-| `api/config/news_rss_feeds.json` | New | Geopolitics RSS + RSSHub feeds |
-| `api/config/climate_rss_feeds.json` | New | Climate/environment RSS feeds |
-| `api/config/health_rss_feeds.json` | New | Health/medical RSS feeds |
-| `api/core/config.py` | Modify | Add currents_api_key, analyze_model, deepseek_api_key |
-| `api/services/tools.py` | Append | 4 new PydanticAI tool functions |
-| `api/services/agent.py` | Modify | Register tools, update prompt, configurable model |
-| `api/models/schemas.py` | Modify | Expand source Literal |
-| `api/services/cache.py` | Modify | Add fetch limits for new sources |
-| `api/migrations/003_add_digest_topic.sql` | New | Topic column + constraint changes |
-| `api/services/collectors/base.py` | Modify | Add topics attribute + helper |
-| `api/services/collectors/news_rss_collector.py` | New | Parameterized news RSS collector (3 instances) |
-| `api/services/collectors/currents_collector.py` | New | Parameterized Currents collector (3 instances) |
-| `api/services/collectors/hackernews_collector.py` | New | HN collector |
-| `api/services/collectors/__init__.py` | Modify | Import new collectors |
-| `api/services/digest_service.py` | Modify | Topic parameter throughout pipeline |
-| `api/services/digest_agent.py` | Modify | 4 topic-specific prompts + categories |
-| `api/models/digest_schemas.py` | Modify | Flexible categories, topic field |
-| `api/routes/ai_daily_report.py` | Modify | Topic query param + validation |
-| `api/services/telegram_service.py` | Modify | 4 digest commands |
-| `frontend/src/pages/AiDailyReport.tsx` | Modify | Topic dropdown UI |
-| `frontend/src/lib/api.ts` | Modify | Topic param in API calls |
-| `frontend/src/pages/AiDailyReportHistory.tsx` | Modify | Topic filter |
-| `frontend/src/components/digest/KanbanBoard.tsx` | Verify | Dynamic category columns |
+1. **Unit tests**: `cd api && uv run python -m pytest -v`
+2. **Manual Analyze test**: Query "Ukraine conflict" → should use news_rss + hackernews tools (not Amazon)
+3. **Manual Analyze test**: Query "React vs Vue" → should use hackernews + stackexchange (not Reddit per instruction)
+4. **Digest test**: Trigger each topic via API → verify collectors run and LLM categorizes correctly
+5. **Telegram test**: `/digest_geo` → generates geopolitics digest
+6. **Frontend test**: Topic switcher changes displayed digest
+7. **DB check**: `daily_digests` table has topic column, multiple digests per day (one per topic)

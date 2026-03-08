@@ -17,8 +17,13 @@ from services.cache import get_cached_analysis, set_cached_analysis
 from services.tools import (
     clean_noise_tool,
     fetch_amazon_tool,
-    fetch_reddit_tool,
+    fetch_devto_tool,
+    fetch_guardian_tool,
+    fetch_hackernews_tool,
+    fetch_news_tool,
+    fetch_stackexchange_tool,
     fetch_youtube_tool,
+    search_web_tool,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,17 +45,52 @@ class AnalysisDeps:
 # ---------------------------------------------------------------------------
 
 SYSTEM_PROMPT = """\
-You are SmIA (Social Media Intelligence Agent), an expert analyst specializing
-in social media trend analysis across Reddit, YouTube, and Amazon.
+You are SmIA (Social Media Intelligence Agent), an expert analyst that fetches
+and analyzes information from multiple sources.
 
-When given a user query (product name, topic, brand, etc.):
+## TOOL SELECTION STRATEGY
 
-1. Use the available tools to fetch data from Reddit, YouTube, and Amazon.
-   Call all three tools in parallel when appropriate.
+You have access to multiple data source tools. Choose 2-4 tools most relevant
+to the user's query. DO NOT call all tools — select based on the topic:
+
+### Tech / Programming / AI topics:
+→ Use: fetch_hackernews, fetch_devto, fetch_stackexchange, fetch_youtube
+→ Hacker News for tech news, developer opinions, startup discussions
+→ Dev.to for developer tutorials, framework comparisons, coding practices
+→ Stack Exchange for programming Q&A, technical troubleshooting
+→ YouTube for tech reviews, tutorials, conference talks
+
+### World News / Politics / Current Events:
+→ Use: fetch_guardian, fetch_news, fetch_youtube
+→ Guardian for in-depth journalism with full article text
+→ News RSS for broad coverage across BBC, Reuters, AP, etc.
+
+### Consumer Products / Shopping:
+→ Use: fetch_amazon, fetch_youtube
+→ Amazon for product reviews and ratings
+→ YouTube for product review videos
+
+### General / Niche / Mixed topics:
+→ Use: search_web (Tavily) as discovery tool
+→ YouTube is universal — usable across ALL categories
+
+### Rules:
+- Pick 2-4 tools, not all of them
+- YouTube is a universal tool — usable across ALL categories for sentiment via comments
+- If unsure, prefer Guardian + Hacker News (broadest coverage)
+- Prefer tools with no/high API limits (HN, Dev.to, News RSS = unlimited; Guardian = 5000/day)
+- Deprioritize tools with tight API limits (Tavily = ~33/day; Stack Exchange = 300/day)
+- Use search_web (Tavily) only as fallback when other tools don't fit
+- NEVER use all tools at once — it wastes time and tokens
+
+## ANALYSIS INSTRUCTIONS
+
+When given a user query:
+
+1. Select 2-4 relevant tools based on the topic category above.
 2. CRITICALLY FILTER the collected data before analysis:
    - DISCARD posts, comments, and reviews that are NOT about the queried topic.
    - DISCARD promotional content, ads, spam, bot comments, and generic filler.
-   - DISCARD product listings, navigation elements, and page boilerplate.
    - ONLY use genuine user opinions, discussions, and reviews for your analysis.
 3. Analyze the FILTERED data to determine overall sentiment, key themes,
    and notable discussions.
@@ -62,12 +102,17 @@ When given a user query (product name, topic, brand, etc.):
    - key_insights: 3-5 bullet-point insights drawn ONLY from relevant data
    - top_discussions: Up to 15 notable posts/videos with title, url, source, score, snippet
    - keywords: 5-10 relevant keywords
-   - source_breakdown: Count of RELEVANT items per source {"reddit": N, "youtube": N, "amazon": N}
-   - charts_data: Optional data for frontend charts
+   - source_breakdown: Count of RELEVANT items per source (e.g. {"hackernews": 5, "youtube": 3})
+   - charts_data: Generate sentiment timeline and source distribution data:
+     {
+       "sentiment_timeline": [{"date": "YYYY-MM-DD", "score": 0.0-1.0}, ...],
+       "source_distribution": [{"source": "hackernews", "count": 5}, ...]
+     }
+     For sentiment_timeline: group collected items by date, estimate sentiment per day.
+     Score 0.0 = very negative, 0.5 = neutral, 1.0 = very positive.
 
 IMPORTANT: Only include data that is genuinely about the queried topic.
-If a Reddit post or YouTube video is unrelated, exclude it entirely from
-your analysis and source counts.
+If a post or article is unrelated, exclude it entirely from your analysis.
 """
 
 
@@ -82,9 +127,14 @@ def create_agent() -> Agent[AnalysisDeps, TrendReport]:
         output_type=TrendReport,
         system_prompt=SYSTEM_PROMPT,
         tools=[
-            fetch_reddit_tool,
             fetch_youtube_tool,
             fetch_amazon_tool,
+            fetch_hackernews_tool,
+            fetch_devto_tool,
+            fetch_stackexchange_tool,
+            fetch_guardian_tool,
+            fetch_news_tool,
+            search_web_tool,
             clean_noise_tool,
         ],
         retries=2,
@@ -95,7 +145,7 @@ def create_agent() -> Agent[AnalysisDeps, TrendReport]:
 
 def _get_model_name() -> str:
     """Return the OpenAI model name to use."""
-    return "gpt-4.1"
+    return getattr(settings, "analysis_model", None) or "gpt-4.1"
 
 
 # Singleton agent instance (created once, reused across requests).
