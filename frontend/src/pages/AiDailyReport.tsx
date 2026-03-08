@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -9,7 +9,7 @@ import {
   Text,
 } from '@chakra-ui/react';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
-import { getTodayDigest } from '../lib/api';
+import { getTodayDigest, getDigestTopics } from '../lib/api';
 import type { DailyDigest } from '../lib/api';
 import { toaster } from '../lib/toaster';
 import DigestHeader from '../components/digest/DigestHeader';
@@ -19,16 +19,36 @@ import ShareButton from '../components/digest/ShareButton';
 import ExportButton from '../components/digest/ExportButton';
 import { History } from 'lucide-react';
 
+interface TopicInfo {
+  key: string;
+  display_name: string;
+}
+
 export default function AiDailyReport() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentTopic = searchParams.get('topic') || 'ai';
+
+  const [topics, setTopics] = useState<TopicInfo[]>([]);
   const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [digestStatus, setDigestStatus] = useState<string>('loading');
   const [digestId, setDigestId] = useState<string | null>(null);
 
-  // Fetch today's digest
+  // Load available topics
   useEffect(() => {
+    getDigestTopics()
+      .then((data) => setTopics(data.topics))
+      .catch(() => setTopics([{ key: 'ai', display_name: 'AI Intelligence' }]));
+  }, []);
+
+  // Fetch today's digest for selected topic
+  useEffect(() => {
+    setDigest(null);
+    setDigestId(null);
+    setDigestStatus('loading');
+
     const fetchDigest = async () => {
       try {
-        const result = await getTodayDigest();
+        const result = await getTodayDigest(currentTopic);
         setDigestStatus(result.status);
         setDigestId(result.digest_id);
         if (result.digest) {
@@ -42,7 +62,7 @@ export default function AiDailyReport() {
     };
 
     fetchDigest();
-  }, []);
+  }, [currentTopic]);
 
   // Realtime: subscribe to digest status changes
   useRealtimeSubscription(
@@ -60,11 +80,36 @@ export default function AiDailyReport() {
     digestId ? `id=eq.${digestId}` : undefined,
   );
 
+  const handleTopicChange = (topic: string) => {
+    setSearchParams({ topic });
+  };
+
+  const topicDisplayName = topics.find((t) => t.key === currentTopic)?.display_name || 'Daily Report';
+
+  // Topic tabs
+  const topicTabs = topics.length > 1 && (
+    <Flex gap={2} mb={4} overflowX="auto" pb={1} css={{ '&::-webkit-scrollbar': { display: 'none' } }}>
+      {topics.map((t) => (
+        <Button
+          className="btn-silicone"
+          key={t.key}
+          size="sm"
+          variant={currentTopic === t.key ? 'subtle' : 'ghost'}
+          onClick={() => handleTopicChange(t.key)}
+          flexShrink={0}
+        >
+          {t.display_name}
+        </Button>
+      ))}
+    </Flex>
+  );
+
   // State: digest is loading/generating
   if (digestStatus !== 'completed' || !digest) {
     return (
       <Box>
-        <Heading size="xl" mb={6}>AI Daily Report</Heading>
+        <Heading size="xl" mb={6}>{topicDisplayName}</Heading>
+        {topicTabs}
         <DigestSkeleton status={digestStatus} />
       </Box>
     );
@@ -73,8 +118,8 @@ export default function AiDailyReport() {
   // State: completed digest
   return (
     <Box>
-      <Flex justifyContent="space-between" alignItems="center" mb={6} flexWrap="wrap" gap={2}>
-        <Heading size="xl">AI Daily Report</Heading>
+      <Flex justifyContent="space-between" alignItems="center" mb={4} flexWrap="wrap" gap={2}>
+        <Heading size="xl">{topicDisplayName}</Heading>
         <Flex gap={2}>
           <ShareButton digestId={digest.id} />
           <ExportButton digest={digest} />
@@ -88,6 +133,7 @@ export default function AiDailyReport() {
           </Link>
         </Flex>
       </Flex>
+      {topicTabs}
       <DigestHeader digest={digest} />
       {digest.top_highlights && digest.top_highlights.length > 0 && (
         <Box className="glass-panel" p={4} mb={6}>

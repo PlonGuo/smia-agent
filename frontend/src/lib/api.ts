@@ -99,13 +99,13 @@ export async function getDigestAccessStatus(): Promise<string> {
   return data.access;
 }
 
-export async function getTodayDigest(): Promise<{
+export async function getTodayDigest(topic: string = 'ai'): Promise<{
   status: string;
   digest_id: string;
   digest?: DailyDigest;
   claimed?: boolean;
 }> {
-  return apiClient('/ai-daily-report/today');
+  return apiClient(`/ai-daily-report/today?topic=${encodeURIComponent(topic)}`);
 }
 
 export async function getDigest(id: string): Promise<{ digest: DailyDigest }> {
@@ -115,8 +115,15 @@ export async function getDigest(id: string): Promise<{ digest: DailyDigest }> {
 export async function listDigests(
   page = 1,
   perPage = 20,
+  topic: string = 'ai',
 ): Promise<{ digests: DailyDigest[]; total: number; page: number; per_page: number }> {
-  return apiClient(`/ai-daily-report/list?page=${page}&per_page=${perPage}`);
+  return apiClient(`/ai-daily-report/list?topic=${encodeURIComponent(topic)}&page=${page}&per_page=${perPage}`);
+}
+
+export async function getDigestTopics(): Promise<{
+  topics: Array<{ key: string; display_name: string }>;
+}> {
+  return apiClient('/ai-daily-report/topics');
 }
 
 export async function requestDigestAccess(

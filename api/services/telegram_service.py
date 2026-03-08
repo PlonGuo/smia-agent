@@ -17,6 +17,7 @@ from datetime import datetime
 
 import httpx
 
+from config.digest_topics import DIGEST_TOPICS
 from core.config import settings
 from services.database import (
     complete_binding,
@@ -171,11 +172,14 @@ def format_welcome() -> str:
         "\U0001f916 <b>Welcome to SmIA Bot!</b>\n"
         "\n"
         "I'm your Social Media Intelligence Agent. "
-        "I analyze trends across Reddit, YouTube, and Amazon.\n"
+        "I analyze trends across multiple sources.\n"
         "\n"
         "<b>Commands:</b>\n"
         "/analyze &lt;topic&gt; — Analyze a topic\n"
-        "/digest — Today's AI daily digest\n"
+        "/digest — Today's AI digest\n"
+        "/digest_geo — Geopolitics digest\n"
+        "/digest_climate — Climate digest\n"
+        "/digest_health — Health digest\n"
         "/history — View your last 5 analyses\n"
         "/bind &lt;code&gt; — Link your web account\n"
         "/help — Show this help message\n"
@@ -193,13 +197,16 @@ def format_help() -> str:
     return (
         "\U0001f4d6 <b>SmIA Bot Commands</b>\n"
         "\n"
-        "/analyze &lt;topic&gt; [time] — Analyze a topic across Reddit, YouTube, and Amazon\n"
+        "/analyze &lt;topic&gt; [time] — Analyze a topic across multiple sources\n"
         "  Time options: day, week (default), month, year\n"
         "  Examples:\n"
         "  <code>/analyze Plaud Note reviews</code>\n"
         "  <code>/analyze Plaud Note month</code>\n"
         "\n"
-        "/digest — View today's AI daily intelligence digest\n"
+        "/digest — Today's AI intelligence digest\n"
+        "/digest_geo — Geopolitics &amp; Conflict digest\n"
+        "/digest_climate — Climate &amp; Environment digest\n"
+        "/digest_health — Health &amp; Medical digest\n"
         "  Shows summary, highlights, and a link to the full report\n"
         "  Triggers generation if no digest exists yet today\n"
         "\n"
@@ -357,11 +364,12 @@ async def handle_analyze(
         )
 
 
-async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
-    """Handle the /digest command — show today's AI digest or trigger generation."""
+async def handle_digest(chat_id: int, telegram_user_id: int, topic: str = "ai") -> None:
+    """Handle the /digest command — show today's digest or trigger generation."""
     import traceback
 
-    print(f"[TG /digest] Start: chat_id={chat_id}, tg_user={telegram_user_id}")
+    topic_name = DIGEST_TOPICS.get(topic, {}).get("display_name", topic.upper())
+    print(f"[TG /digest] Start: chat_id={chat_id}, tg_user={telegram_user_id}, topic={topic}")
 
     # 1. Check binding
     binding = get_binding_by_telegram_id(telegram_user_id)
@@ -398,9 +406,9 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
     try:
         from services.digest_service import claim_or_get_digest
 
-        result = claim_or_get_digest(user_id, access_token)
+        result = claim_or_get_digest(user_id, access_token, topic=topic)
         status = result.get("status")
-        print(f"[TG /digest] claim_or_get_digest result: status={status}, claimed={result.get('claimed')}, digest_id={result.get('digest_id')}")
+        print(f"[TG /digest] claim_or_get_digest result: status={status}, claimed={result.get('claimed')}, digest_id={result.get('digest_id')}, topic={topic}")
 
         if status == "completed":
             digest = result.get("digest", {})
@@ -423,7 +431,7 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
 
             await send_message(
                 chat_id,
-                f"\U0001f4f0 <b>AI Daily Digest</b>\n\n"
+                f"\U0001f4f0 <b>{topic_name} Digest</b>\n\n"
                 f"\U0001f4ca {total} items analyzed{cat_text}\n\n"
                 f"<b>Summary:</b>\n{_escape_html(summary)}"
                 f"{hl_text}\n\n"
@@ -447,7 +455,7 @@ async def handle_digest(chat_id: int, telegram_user_id: int) -> None:
             try:
                 print(f"[TG /digest] Claimed! Running full digest pipeline for digest_id={result['digest_id']}")
                 from services.digest_service import run_digest
-                await run_digest(result["digest_id"])
+                await run_digest(result["digest_id"], topic=topic)
                 print("[TG /digest] Digest pipeline completed successfully")
             except Exception as exc:
                 tb = traceback.format_exc()
@@ -613,7 +621,15 @@ async def handle_update(update: dict) -> None:
         code = text[len(text.split()[0]):].strip()
         await handle_bind(chat_id, telegram_user_id, code)
     elif command == "/digest":
-        await handle_digest(chat_id, telegram_user_id)
+        await handle_digest(chat_id, telegram_user_id, topic="ai")
+    elif command == "/digest_ai":
+        await handle_digest(chat_id, telegram_user_id, topic="ai")
+    elif command == "/digest_geo":
+        await handle_digest(chat_id, telegram_user_id, topic="geopolitics")
+    elif command == "/digest_climate":
+        await handle_digest(chat_id, telegram_user_id, topic="climate")
+    elif command == "/digest_health":
+        await handle_digest(chat_id, telegram_user_id, topic="health")
     elif command == "/history":
         await handle_history(chat_id, telegram_user_id)
     elif text.startswith("/"):

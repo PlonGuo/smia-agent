@@ -1,3 +1,10 @@
 """Import all collectors to trigger self-registration."""
 
-from . import arxiv_collector, github_collector, rss_collector, bluesky_collector
+from . import (
+    arxiv_collector,
+    github_collector,
+    rss_collector,
+    bluesky_collector,
+    hackernews_collector,
+    currents_collector,
+)
