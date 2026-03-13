@@ -1,24 +1,24 @@
 """Tests for Pydantic models in api/models/digest_schemas.py."""
 
-import pytest
-from datetime import datetime, timezone
-from pydantic import ValidationError
-
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from models.digest_schemas import (
-    RawCollectorItem,
-    DigestItem,
-    DailyDigestLLMOutput,
-    DailyDigestDB,
     AccessRequestCreate,
     AccessRequestResponse,
-    DigestStatusResponse,
     BookmarkCreate,
+    DailyDigestDB,
+    DailyDigestLLMOutput,
+    DigestItem,
+    DigestStatusResponse,
     FeedbackCreate,
+    RawCollectorItem,
 )
 
 
@@ -30,7 +30,7 @@ class TestRawCollectorItem:
             source="arxiv",
             snippet="A test paper about AI",
             author="John Doe",
-            published_at=datetime.now(timezone.utc),
+            published_at=datetime.now(UTC),
             extra={"stars": 100},
         )
         assert item.source == "arxiv"
@@ -181,7 +181,7 @@ class TestDailyDigestDB:
             importance=3,
             why_it_matters="This is important because of reasons",
         )
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         db = DailyDigestDB(
             executive_summary="Summary",
             items=[item],
@@ -227,7 +227,7 @@ class TestAccessRequestResponse:
             email="user@example.com",
             reason="I need access",
             status="pending",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         assert resp.status == "pending"
 
@@ -238,7 +238,7 @@ class TestAccessRequestResponse:
                 email="user@example.com",
                 reason="I need access",
                 status="unknown",
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
 
 

@@ -1,11 +1,11 @@
 """Tests for arXiv collector."""
 
-import pytest
-from unittest.mock import patch, MagicMock
-from datetime import datetime, timezone
-
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
@@ -16,7 +16,7 @@ def _make_mock_result(title="Test Paper", authors=None, summary="A test paper.")
     result.title = title
     result.entry_id = "http://arxiv.org/abs/2401.00001v1"
     result.summary = summary
-    result.published = datetime(2026, 2, 24, tzinfo=timezone.utc)
+    result.published = datetime(2026, 2, 24, tzinfo=UTC)
     if authors is None:
         author = MagicMock()
         author.__str__ = lambda self: "John Doe"

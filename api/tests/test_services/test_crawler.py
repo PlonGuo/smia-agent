@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -16,7 +15,6 @@ from services.crawler import (
     fetch_reddit,
     fetch_youtube,
 )
-
 
 # ---------------------------------------------------------------------------
 # Reddit (YARS) tests

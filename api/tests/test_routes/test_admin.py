@@ -1,11 +1,10 @@
 """Tests for admin routes."""
 
-import pytest
-from unittest.mock import patch, MagicMock
-from datetime import datetime, timezone
-
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 

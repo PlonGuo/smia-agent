@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from time import mktime
 
@@ -14,6 +14,7 @@ import feedparser
 from langfuse import observe
 
 from models.digest_schemas import RawCollectorItem
+
 from .base import register_collector
 
 logger = logging.getLogger(__name__)
@@ -52,11 +53,11 @@ def _parse_feed_sync(feed_config: dict, cutoff: datetime) -> list[RawCollectorIt
             published_at = None
             if hasattr(entry, "published_parsed") and entry.published_parsed:
                 published_at = datetime.fromtimestamp(
-                    mktime(entry.published_parsed), tz=timezone.utc
+                    mktime(entry.published_parsed), tz=UTC
                 )
             elif hasattr(entry, "updated_parsed") and entry.updated_parsed:
                 published_at = datetime.fromtimestamp(
-                    mktime(entry.updated_parsed), tz=timezone.utc
+                    mktime(entry.updated_parsed), tz=UTC
                 )
 
             # Skip entries older than cutoff
@@ -105,7 +106,7 @@ class RssCollector:
         if not feeds:
             return []
 
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+        cutoff = datetime.now(UTC) - timedelta(hours=48)
         loop = asyncio.get_event_loop()
 
         # Parse all feeds in parallel using thread pool

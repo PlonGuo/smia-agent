@@ -7,25 +7,25 @@ if _api_dir not in sys.path:
     sys.path.insert(0, _api_dir)
 
 import traceback
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
 from core.config import settings
 from core.langfuse_config import init_langfuse
-from contextlib import asynccontextmanager
-
-from routes.analyze import router as analyze_router
-from routes.reports import router as reports_router
-from routes.telegram import router as telegram_router
-from routes.auth import router as auth_router
 from routes.admin import router as admin_router
 from routes.ai_daily_report import router as ai_daily_report_router
+from routes.analyze import router as analyze_router
+from routes.auth import router as auth_router
 from routes.bookmarks import router as bookmarks_router
 from routes.feedback import router as feedback_router
 from routes.internal import router as internal_router
 from routes.mcp_server import mcp
+from routes.reports import router as reports_router
+from routes.telegram import router as telegram_router
 
 init_langfuse()
 

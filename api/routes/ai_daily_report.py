@@ -5,13 +5,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from config.digest_topics import DIGEST_TOPICS
 from core.auth import AuthenticatedUser, get_current_user
 from core.config import settings
-from config.digest_topics import DIGEST_TOPICS
 from models.digest_schemas import AccessRequestCreate
 from services.database import get_supabase_client
 from services.digest_service import claim_or_get_digest, run_digest
@@ -135,7 +135,7 @@ async def get_shared_digest(token: str):
     expires_at = token_row.data.get("expires_at")
     if expires_at:
         expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-        if expiry < datetime.now(timezone.utc):
+        if expiry < datetime.now(UTC):
             raise HTTPException(status_code=410, detail="Share link has expired")
 
     digest = (
@@ -198,7 +198,7 @@ async def create_share_token(
 ):
     """Generate a shareable link for a digest."""
     token = uuid.uuid4().hex[:16]
-    expires_at = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
+    expires_at = (datetime.now(UTC) + timedelta(hours=24)).isoformat()
 
     client = get_supabase_client()
     client.table("digest_share_tokens").insert({

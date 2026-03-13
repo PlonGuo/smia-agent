@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any
 
 from langfuse import get_client, observe
 from pydantic_ai import Agent

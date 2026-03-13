@@ -5,8 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import UTC, datetime, timedelta
 
 from langfuse import observe
 from langfuse.openai import AsyncOpenAI
@@ -229,7 +228,7 @@ def _youtube_published_after(time_range: str) -> str | None:
     delta = deltas.get(time_range)
     if not delta:
         return None
-    dt = datetime.now(timezone.utc) - delta
+    dt = datetime.now(UTC) - delta
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 

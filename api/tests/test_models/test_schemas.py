@@ -1,11 +1,11 @@
 """Tests for Pydantic models in api/models/schemas.py."""
 
-import pytest
-from datetime import datetime, timezone
-from pydantic import ValidationError
-
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
@@ -96,7 +96,7 @@ class TestTrendReport:
         assert report.created_at is None
 
     def test_metadata_populated(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         data = make_trend_report_data(
             id="abc-123",
             user_id="user-456",
@@ -146,7 +146,7 @@ class TestReportsListResponse:
 
 class TestBindCodeResponse:
     def test_valid(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         resp = BindCodeResponse(bind_code="123456", expires_at=now)
         assert resp.bind_code == "123456"
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import traceback
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from langfuse import observe
@@ -80,7 +80,7 @@ async def analyze(
 
 def _next_utc_midnight() -> str:
     """Return ISO timestamp for the start of the next UTC day."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
     return tomorrow.isoformat()
 

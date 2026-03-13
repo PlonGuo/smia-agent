@@ -1,18 +1,18 @@
 """Tests for Bluesky collector."""
 
-import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
-from datetime import datetime, timezone, timedelta
-
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
 
 def _recent_iso() -> str:
     """Return an ISO timestamp 1 hour ago so it's always within the 48h window."""
-    return (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return (datetime.now(UTC) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _make_bsky_response(posts=None, status_code=200):

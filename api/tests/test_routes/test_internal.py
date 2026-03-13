@@ -1,10 +1,10 @@
 """Tests for internal webhook endpoints."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock
 
 from models.update_schemas import UpdateSummary
-
 
 SAMPLE_COMMITS = [
     {"id": "abc1234567", "message": "feat: add new feature", "author": "dev", "url": "https://github.com/test/1"},

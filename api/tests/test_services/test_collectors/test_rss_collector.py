@@ -1,19 +1,19 @@
 """Tests for RSS/blog collector."""
 
-import pytest
-from unittest.mock import patch, MagicMock
-from datetime import datetime, timezone, timedelta
-from time import struct_time
-
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from time import struct_time
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
 
 def _recent_struct_time() -> struct_time:
     """Return a struct_time 1 hour ago so it's always within the 48h window."""
-    dt = datetime.now(timezone.utc) - timedelta(hours=1)
+    dt = datetime.now(UTC) - timedelta(hours=1)
     return dt.timetuple()
 
 
@@ -52,7 +52,7 @@ class TestRssCollector:
         feeds_config = {"feeds": [{"name": "Test Blog", "url": "https://blog.example.com/feed"}]}
         parsed = _make_parsed_feed([_make_feed_entry()])
 
-        with patch("builtins.open", create=True) as mock_open, \
+        with patch("builtins.open", create=True), \
              patch("json.load", return_value=feeds_config), \
              patch("services.collectors.rss_collector.feedparser.parse", return_value=parsed):
             from services.collectors.rss_collector import RssCollector

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from services.database import get_supabase_client
@@ -78,7 +78,7 @@ def get_cached_fetch(
     """Return cached crawler data if available and not expired."""
     norm = normalize_query(query)
     client = get_supabase_client()  # service-role
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     try:
         response = (
@@ -108,7 +108,7 @@ def set_cached_fetch(
     """Store crawler output in cache. Upserts on conflict."""
     norm = normalize_query(query)
     ttl = _FETCH_TTL.get(time_range, _FETCH_TTL["week"])
-    expires_at = (datetime.now(timezone.utc) + ttl).isoformat()
+    expires_at = (datetime.now(UTC) + ttl).isoformat()
     client = get_supabase_client()  # service-role
 
     try:
@@ -144,7 +144,7 @@ def get_cached_analysis(query: str, time_range: str) -> dict[str, Any] | None:
     """
     norm = normalize_query(query)
     client = get_supabase_client()  # service-role
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     try:
         response = (
@@ -173,7 +173,7 @@ def set_cached_analysis(
     """Store analysis report in cache. Upserts on conflict."""
     norm = normalize_query(query)
     ttl = _ANALYSIS_TTL.get(time_range, _ANALYSIS_TTL["week"])
-    expires_at = (datetime.now(timezone.utc) + ttl).isoformat()
+    expires_at = (datetime.now(UTC) + ttl).isoformat()
     client = get_supabase_client()  # service-role
 
     try:

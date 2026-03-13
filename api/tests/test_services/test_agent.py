@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
-
 from services.agent import SYSTEM_PROMPT, create_agent
 
 
@@ -35,7 +31,6 @@ class TestAgentConfig:
         assert "sentiment" in SYSTEM_PROMPT
 
     def test_agent_output_type_is_trend_report(self):
-        from models.schemas import TrendReport
 
         agent = create_agent()
         # The output type should be TrendReport

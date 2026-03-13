@@ -28,6 +28,9 @@ screen-shot/
 # Playwright MCP
 .playwright-mcp/
 
+# Quality gate reports
+.claude/quality-gate.md
+
 # OS
 .DS_Store
 Thumbs.db

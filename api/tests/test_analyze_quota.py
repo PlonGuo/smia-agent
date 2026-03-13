@@ -1,6 +1,6 @@
 """Tests for the GET /api/analyze/quota endpoint."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
@@ -26,7 +26,7 @@ async def test_quota_returns_correct_shape(authed_client):
     assert "resets_at" in data
     # resets_at should be a valid ISO timestamp in the future
     resets_at = datetime.fromisoformat(data["resets_at"])
-    assert resets_at > datetime.now(timezone.utc)
+    assert resets_at > datetime.now(UTC)
 
 
 @pytest.mark.anyio
