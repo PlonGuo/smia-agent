@@ -24,7 +24,7 @@ from services.database import get_supabase_client
 logger = logging.getLogger(__name__)
 
 
-def claim_or_get_digest(user_id: str, access_token: str, topic: str = "ai") -> dict:
+def claim_or_get_digest(user_id: str | None = None, access_token: str | None = None, topic: str = "ai") -> dict:
     """Claim lock or return current status. Returns FAST — does NOT run pipeline.
 
     Called from GET /api/ai-daily-report/today and Telegram /digest.

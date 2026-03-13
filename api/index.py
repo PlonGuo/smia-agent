@@ -25,6 +25,7 @@ from routes.ai_daily_report import router as ai_daily_report_router
 from routes.bookmarks import router as bookmarks_router
 from routes.feedback import router as feedback_router
 from routes.internal import router as internal_router
+from routes.mcp_server import mcp
 
 init_langfuse()
 
@@ -65,6 +66,13 @@ app.include_router(ai_daily_report_router)
 app.include_router(bookmarks_router)
 app.include_router(feedback_router)
 app.include_router(internal_router)
+
+# MCP server — fully public, no auth required
+# AI clients (Claude Desktop, Cursor, Windsurf) connect via:
+# { "mcpServers": { "smia": { "url": "https://smia-agent.fly.dev/mcp" } } }
+# Note: CORSMiddleware does not cover mounted sub-apps; CORS is intentionally
+# not set on /mcp since all current MCP clients are non-browser (direct HTTP).
+app.mount("/mcp", mcp.streamable_http_app())
 
 
 @app.exception_handler(RequestValidationError)
