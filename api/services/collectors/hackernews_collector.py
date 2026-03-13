@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from langfuse import observe
 
 from models.digest_schemas import RawCollectorItem
+
 from .base import register_collector
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ class HackernewsCollector:
     @observe(name="hackernews_collector")
     async def collect(self) -> list[RawCollectorItem]:
         """Fetch top stories from Hacker News (last 24h)."""
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        cutoff = datetime.now(UTC) - timedelta(hours=24)
         cutoff_ts = int(cutoff.timestamp())
 
         params = {

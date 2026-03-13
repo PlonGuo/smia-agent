@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from langfuse import observe
 
-from core.config import settings
 from models.digest_schemas import RawCollectorItem
+
 from .base import register_collector
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class BlueskyCollector:
     @observe(name="bluesky_collector")
     async def collect(self) -> list[RawCollectorItem]:
         """Fetch recent posts from AI researchers on Bluesky."""
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+        cutoff = datetime.now(UTC) - timedelta(hours=48)
         all_items: list[RawCollectorItem] = []
 
         async with httpx.AsyncClient(timeout=15) as client:
@@ -98,7 +98,6 @@ class BlueskyCollector:
                 continue
 
             # Build Bluesky post URL
-            author_did = post.get("author", {}).get("did", "")
             uri = post.get("uri", "")
             rkey = uri.split("/")[-1] if "/" in uri else ""
             author_handle = post.get("author", {}).get("handle", handle)

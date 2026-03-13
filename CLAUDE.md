@@ -28,6 +28,8 @@ When starting a new feature, read the corresponding plan first. Update status to
 | `docs/plans/2026-02-26-dashboard-cold-start-fix.md` | Done | Dashboard SWR cache for cold start perf |
 | `docs/plans/2026-03-06-open-digest-analyze-limit.md` | Done | Open digest access + 5/day analyze limit |
 | `docs/plans/2026-03-06-security-hardening.md` | Done | Security improvements |
+| `docs/plans/2026-03-07-seo-optimization.md` | Done | SEO meta tags, sitemap, OG image, Search Console |
+| `docs/plans/2026-03-12-mcp-server.md` | Done | Public MCP server for AI Digest + Landing Page tutorial |
 
 ## Available MCP Tools
 

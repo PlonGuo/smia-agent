@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 
 import httpx
 from langfuse import observe
 
 from core.config import settings
 from models.digest_schemas import RawCollectorItem
+
 from .base import register_collector
 
 logger = logging.getLogger(__name__)

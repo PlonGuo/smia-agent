@@ -36,12 +36,23 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Run tests
-        run: uv run python -m pytest -v
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: Type check (mypy)
+        run: uv run mypy . --ignore-missing-imports
+        continue-on-error: true
+
+      - name: Run tests with coverage
+        run: uv run python -m pytest -v --cov --cov-fail-under=80
         env:
           SUPABASE_URL: "https://fake.supabase.co"
           SUPABASE_ANON_KEY: "fake-key"
           OPENAI_API_KEY: "fake-key"
+
+      - name: Security scan (pip-audit)
+        run: uv run pip-audit
+        continue-on-error: true
 
   frontend:
     name: Frontend Lint & Build
@@ -71,3 +82,7 @@ jobs:
 
       - name: Type check & Build
         run: pnpm build
+
+      - name: Security scan (pnpm audit)
+        run: pnpm audit --audit-level=high
+        continue-on-error: true

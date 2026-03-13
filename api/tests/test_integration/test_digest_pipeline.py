@@ -2,29 +2,31 @@
 
 Tests the full data pipeline with MOCKED external APIs but REAL internal logic.
 """
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
-from datetime import datetime, timezone
-from models.digest_schemas import RawCollectorItem, DailyDigestLLMOutput
+
+from models.digest_schemas import DailyDigestLLMOutput, RawCollectorItem
 
 # --- Fixtures: realistic mock data per source ---
 
 MOCK_ARXIV_ITEMS = [
-    RawCollectorItem(title="Scaling Laws for Neural Language Models", url="https://arxiv.org/abs/2001.08361", source="arxiv", snippet="We study empirical scaling laws...", author="Kaplan et al.", published_at=datetime.now(timezone.utc)),
-    RawCollectorItem(title="Attention Is All You Need v2", url="https://arxiv.org/abs/2401.00001", source="arxiv", snippet="We propose improvements to transformer architecture...", author="Research Team", published_at=datetime.now(timezone.utc)),
+    RawCollectorItem(title="Scaling Laws for Neural Language Models", url="https://arxiv.org/abs/2001.08361", source="arxiv", snippet="We study empirical scaling laws...", author="Kaplan et al.", published_at=datetime.now(UTC)),
+    RawCollectorItem(title="Attention Is All You Need v2", url="https://arxiv.org/abs/2401.00001", source="arxiv", snippet="We propose improvements to transformer architecture...", author="Research Team", published_at=datetime.now(UTC)),
 ]
 
 MOCK_GITHUB_ITEMS = [
-    RawCollectorItem(title="openai/swarm", url="https://github.com/openai/swarm", source="github", snippet="Educational framework for multi-agent orchestration", author="openai", published_at=datetime.now(timezone.utc)),
+    RawCollectorItem(title="openai/swarm", url="https://github.com/openai/swarm", source="github", snippet="Educational framework for multi-agent orchestration", author="openai", published_at=datetime.now(UTC)),
 ]
 
 MOCK_RSS_ITEMS = [
-    RawCollectorItem(title="Anthropic Releases Claude 4.5", url="https://anthropic.com/blog/claude-4-5", source="rss", snippet="Today we release Claude 4.5 with improved reasoning...", author="Anthropic", published_at=datetime.now(timezone.utc)),
-    RawCollectorItem(title="Anthropic Launches Claude 4.5", url="https://simonwillison.net/2025/anthropic-claude/", source="rss", snippet="Anthropic just released Claude 4.5, here are my thoughts...", author="Simon Willison", published_at=datetime.now(timezone.utc)),
+    RawCollectorItem(title="Anthropic Releases Claude 4.5", url="https://anthropic.com/blog/claude-4-5", source="rss", snippet="Today we release Claude 4.5 with improved reasoning...", author="Anthropic", published_at=datetime.now(UTC)),
+    RawCollectorItem(title="Anthropic Launches Claude 4.5", url="https://simonwillison.net/2025/anthropic-claude/", source="rss", snippet="Anthropic just released Claude 4.5, here are my thoughts...", author="Simon Willison", published_at=datetime.now(UTC)),
 ]
 
 MOCK_BLUESKY_ITEMS = [
-    RawCollectorItem(title="Just published our new paper on efficient fine-tuning...", url="https://bsky.app/profile/researcher/post/abc", source="bluesky", snippet="Thread on LoRA improvements", author="researcher.bsky.social", published_at=datetime.now(timezone.utc)),
+    RawCollectorItem(title="Just published our new paper on efficient fine-tuning...", url="https://bsky.app/profile/researcher/post/abc", source="bluesky", snippet="Thread on LoRA improvements", author="researcher.bsky.social", published_at=datetime.now(UTC)),
 ]
 
 

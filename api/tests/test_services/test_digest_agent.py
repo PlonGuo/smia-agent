@@ -1,18 +1,18 @@
 """Tests for digest agent."""
 
-import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
-from datetime import datetime, timezone
-
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from models.digest_schemas import (
-    RawCollectorItem,
     DailyDigestLLMOutput,
     DigestItem,
+    RawCollectorItem,
 )
 
 
@@ -25,7 +25,7 @@ def _make_sample_items():
             source="arxiv",
             snippet="We study empirical scaling laws for neural language models.",
             author="Kaplan et al.",
-            published_at=datetime.now(timezone.utc),
+            published_at=datetime.now(UTC),
         ),
         RawCollectorItem(
             title="openai/swarm",
@@ -33,7 +33,7 @@ def _make_sample_items():
             source="github",
             snippet="Educational framework for multi-agent orchestration",
             author="openai",
-            published_at=datetime.now(timezone.utc),
+            published_at=datetime.now(UTC),
         ),
         RawCollectorItem(
             title="Anthropic Releases Claude 4.5",
@@ -41,7 +41,7 @@ def _make_sample_items():
             source="rss",
             snippet="Today we release Claude 4.5 with improved reasoning.",
             author="Anthropic",
-            published_at=datetime.now(timezone.utc),
+            published_at=datetime.now(UTC),
         ),
     ]
 

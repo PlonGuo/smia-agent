@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -40,7 +40,7 @@ async def generate_bind_code(
     to the Telegram bot via ``/bind <code>`` to link accounts.
     """
     code = _generate_bind_code()
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=BIND_CODE_EXPIRY_MINUTES)
+    expires_at = datetime.now(UTC) + timedelta(minutes=BIND_CODE_EXPIRY_MINUTES)
     expires_iso = expires_at.isoformat()
 
     save_bind_code(

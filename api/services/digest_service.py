@@ -11,20 +11,21 @@ import asyncio
 import logging
 import time
 import traceback
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 from langfuse import get_client, observe
 
 from core.config import settings
 from core.langfuse_config import flush_langfuse, trace_metadata
 from models.digest_schemas import RawCollectorItem
+
 # COLLECTOR_REGISTRY no longer used directly — see collector_factory.py
 from services.database import get_supabase_client
 
 logger = logging.getLogger(__name__)
 
 
-def claim_or_get_digest(user_id: str, access_token: str, topic: str = "ai") -> dict:
+def claim_or_get_digest(user_id: str | None = None, access_token: str | None = None, topic: str = "ai") -> dict:
     """Claim lock or return current status. Returns FAST — does NOT run pipeline.
 
     Called from GET /api/ai-daily-report/today and Telegram /digest.
@@ -53,7 +54,7 @@ def claim_or_get_digest(user_id: str, access_token: str, topic: str = "ai") -> d
             updated_at = datetime.fromisoformat(
                 digest_row.data["updated_at"].replace("Z", "+00:00")
             )
-            stale_threshold = datetime.now(timezone.utc) - timedelta(minutes=5)
+            stale_threshold = datetime.now(UTC) - timedelta(minutes=5)
             if updated_at < stale_threshold:
                 logger.warning(
                     "Digest %s stuck at '%s' since %s — resetting to allow re-generation",
@@ -63,7 +64,7 @@ def claim_or_get_digest(user_id: str, access_token: str, topic: str = "ai") -> d
                       f"updated={updated_at.isoformat()}). Resetting.")
                 client.table("daily_digests").update({
                     "status": "collecting",
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(UTC).isoformat(),
                 }).eq("id", row["digest_id"]).execute()
                 return {
                     "status": "collecting",
@@ -109,7 +110,7 @@ async def run_digest(digest_id: str, topic: str = "ai") -> None:
             client.table("daily_digests").update({
                 "status": "failed",
                 "source_health": source_health,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(UTC).isoformat(),
             }).eq("id", digest_id).execute()
             logger.error("All collectors failed — no items to analyze")
             print("[DIGEST] All collectors failed — no items to analyze")
@@ -120,7 +121,7 @@ async def run_digest(digest_id: str, topic: str = "ai") -> None:
             "status": "analyzing",
             "source_health": source_health,
             "total_items": len(all_items),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
         }).eq("id", digest_id).execute()
 
         # Phase 2: Analyze
@@ -137,7 +138,7 @@ async def run_digest(digest_id: str, topic: str = "ai") -> None:
         print(f"[DIGEST] OpenAI key present (len={len(openai_key)}, prefix={openai_key[:8]}...)")
         print(f"[DIGEST] {len(all_items)} items collected, calling LLM...")
 
-        from services.digest_agent import analyze_digest, DIGEST_PROMPT_VERSION
+        from services.digest_agent import DIGEST_PROMPT_VERSION, analyze_digest
 
         start = time.time()
         digest_output = await analyze_digest(all_items, topic=topic)
@@ -166,7 +167,7 @@ async def run_digest(digest_id: str, topic: str = "ai") -> None:
             "processing_time_seconds": processing_time,
             "langfuse_trace_id": langfuse_trace_id,
             "prompt_version": DIGEST_PROMPT_VERSION,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
         }).eq("id", digest_id).execute()
 
         # Cleanup old digests (30 days) + expired share tokens
@@ -192,7 +193,7 @@ async def run_digest(digest_id: str, topic: str = "ai") -> None:
         client.table("daily_digests").update({
             "status": "failed",
             "executive_summary": error_msg,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
         }).eq("id", digest_id).execute()
 
 
@@ -264,12 +265,12 @@ async def _run_collectors(client, today: str, topic: str = "ai") -> tuple[list[R
 
 def _cleanup_old_data(client) -> None:
     """Delete digests and share tokens older than 30 days."""
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    cutoff = (datetime.now(UTC) - timedelta(days=30)).isoformat()
     try:
         client.table("daily_digests").delete().lt("created_at", cutoff).execute()
         client.table("digest_collector_cache").delete().lt("collected_at", cutoff).execute()
         client.table("digest_share_tokens").delete().lt("expires_at",
-                     datetime.now(timezone.utc).isoformat()).execute()
+                     datetime.now(UTC).isoformat()).execute()
     except Exception as exc:
         logger.error("Cleanup failed: %s", exc)
 

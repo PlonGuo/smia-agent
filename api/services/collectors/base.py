@@ -6,7 +6,7 @@ from typing import Protocol, runtime_checkable
 
 from models.digest_schemas import RawCollectorItem
 
-COLLECTOR_REGISTRY: dict[str, "Collector"] = {}
+COLLECTOR_REGISTRY: dict[str, Collector] = {}
 
 
 @runtime_checkable

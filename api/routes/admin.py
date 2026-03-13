@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -79,7 +79,7 @@ async def approve_request(
     client.table("digest_access_requests").update({
         "status": "approved",
         "reviewed_by": user.user_id,
-        "reviewed_at": datetime.now(timezone.utc).isoformat(),
+        "reviewed_at": datetime.now(UTC).isoformat(),
     }).eq("id", request_id).execute()
 
     # Add to authorized users
@@ -123,7 +123,7 @@ async def reject_request(
         "status": "rejected",
         "rejection_reason": reason,
         "reviewed_by": user.user_id,
-        "reviewed_at": datetime.now(timezone.utc).isoformat(),
+        "reviewed_at": datetime.now(UTC).isoformat(),
     }).eq("id", request_id).execute()
 
     send_rejection_email(req_data["email"], reason)
