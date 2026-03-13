@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Box, Flex, Heading, Text, Stack } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
-import { Search, Newspaper, Send } from 'lucide-react';
+import { Search, Newspaper, Send, Bot, Copy, Check } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import CTAButtons from './CTAButtons';
 
@@ -9,12 +10,27 @@ const MotionFlex = motion.create(Flex);
 const MotionHeading = motion.create(Heading);
 const MotionText = motion.create(Text);
 
+const MCP_CONFIG = `{
+  "mcpServers": {
+    "smia": {
+      "url": "https://smia-agent.fly.dev/mcp"
+    }
+  }
+}`;
+
+const MCP_TOOLS = [
+  { name: 'get_digest("ai")', desc: 'Fetch today\'s digest for a topic' },
+  { name: 'get_digest_history("ai", 7)', desc: 'Last N days of summaries' },
+  { name: 'list_topics()', desc: 'List all available topics' },
+];
+
 interface TutorialSlide {
   icon: LucideIcon;
   title: string;
   steps: string[];
   mockupLabel: string;
-  image: string;
+  image?: string;
+  isMcp?: boolean;
 }
 
 const slides: TutorialSlide[] = [
@@ -51,7 +67,101 @@ const slides: TutorialSlide[] = [
     mockupLabel: 'Telegram Bot',
     image: '/images/telegram.png',
   },
+  {
+    icon: Bot,
+    title: 'Connect via MCP',
+    steps: [
+      'Add SmIA to your AI client config (Claude Desktop, Cursor, Windsurf)',
+      'Ask your AI to fetch today\'s digest or trend history',
+      'No account or token required — fully public',
+    ],
+    mockupLabel: 'MCP Config',
+    isMcp: true,
+  },
 ];
+
+function McpMockup() {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(MCP_CONFIG).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <Box
+      borderRadius="xl"
+      overflow="hidden"
+      bg="rgba(0, 0, 0, 0.4)"
+      border="1px solid rgba(74, 222, 128, 0.15)"
+      fontFamily="mono"
+      fontSize="sm"
+    >
+      {/* Title bar */}
+      <Flex
+        px={4}
+        py={2}
+        bg="rgba(74, 222, 128, 0.05)"
+        borderBottom="1px solid rgba(74, 222, 128, 0.1)"
+        alignItems="center"
+        justifyContent="space-between"
+      >
+        <Text color="gray.400" fontSize="xs" letterSpacing="wide">
+          claude_desktop_config.json
+        </Text>
+        <Flex
+          as="button"
+          onClick={handleCopy}
+          alignItems="center"
+          gap={1}
+          px={2}
+          py={1}
+          borderRadius="md"
+          bg={copied ? 'rgba(74, 222, 128, 0.15)' : 'rgba(255,255,255,0.05)'}
+          color={copied ? 'green.400' : 'gray.400'}
+          cursor="pointer"
+          fontSize="xs"
+          transition="all 0.2s"
+          _hover={{ bg: 'rgba(74, 222, 128, 0.1)', color: 'green.300' }}
+        >
+          {copied ? <Check size={12} /> : <Copy size={12} />}
+          <Text>{copied ? 'Copied!' : 'Copy'}</Text>
+        </Flex>
+      </Flex>
+
+      {/* Code block */}
+      <Box px={5} py={4}>
+        <Text color="gray.300" whiteSpace="pre" lineHeight="1.8">
+          {MCP_CONFIG}
+        </Text>
+      </Box>
+
+      {/* Available tools */}
+      <Box
+        px={5}
+        py={3}
+        borderTop="1px solid rgba(74, 222, 128, 0.08)"
+        bg="rgba(0,0,0,0.2)"
+      >
+        <Text color="gray.500" fontSize="xs" mb={2} letterSpacing="wide" textTransform="uppercase">
+          Available Tools
+        </Text>
+        <Stack gap={1}>
+          {MCP_TOOLS.map((tool) => (
+            <Flex key={tool.name} gap={2} alignItems="baseline">
+              <Text color="green.400" fontFamily="mono" fontSize="xs" flexShrink={0}>
+                {tool.name}
+              </Text>
+              <Text color="gray.500" fontSize="xs">— {tool.desc}</Text>
+            </Flex>
+          ))}
+        </Stack>
+      </Box>
+    </Box>
+  );
+}
 
 export default function TutorialSection() {
   return (
@@ -120,20 +230,24 @@ export default function TutorialSection() {
                 viewport={{ once: true, margin: '-100px' }}
                 transition={{ duration: 0.6, delay: 0.1 }}
               >
-                <Box
-                  position="relative"
-                  borderRadius="xl"
-                  overflow="hidden"
-                  bg="rgba(74, 222, 128, 0.05)"
-                  border="1px solid rgba(74, 222, 128, 0.1)"
-                >
-                  <img
-                    src={slide.image}
-                    alt={slide.mockupLabel}
-                    loading="lazy"
-                    style={{ width: '100%', height: 'auto', display: 'block' }}
-                  />
-                </Box>
+                {slide.isMcp ? (
+                  <McpMockup />
+                ) : (
+                  <Box
+                    position="relative"
+                    borderRadius="xl"
+                    overflow="hidden"
+                    bg="rgba(74, 222, 128, 0.05)"
+                    border="1px solid rgba(74, 222, 128, 0.1)"
+                  >
+                    <img
+                      src={slide.image}
+                      alt={slide.mockupLabel}
+                      loading="lazy"
+                      style={{ width: '100%', height: 'auto', display: 'block' }}
+                    />
+                  </Box>
+                )}
               </MotionBox>
 
               {/* Text side */}
