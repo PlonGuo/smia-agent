@@ -9,12 +9,13 @@ that nobody has starred yet.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from langfuse import observe
 
 from models.digest_schemas import RawCollectorItem
+
 from .base import register_collector
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ class GithubCollector:
     @observe(name="github_collector")
     async def collect(self) -> list[RawCollectorItem]:
         """Fetch top AI/LLM repos with recent activity, sorted by stars."""
-        since = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+        since = (datetime.now(UTC) - timedelta(days=7)).strftime("%Y-%m-%d")
         seen_urls: set[str] = set()
         all_items: list[RawCollectorItem] = []
 

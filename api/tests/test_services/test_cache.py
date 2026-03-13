@@ -4,16 +4,13 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from services.cache import (
+    _ANALYSIS_TTL,
     _FETCH_LIMITS,
     _FETCH_TTL,
-    _ANALYSIS_TTL,
     get_fetch_limits,
     normalize_query,
 )
-
 
 # ---------------------------------------------------------------------------
 # normalize_query

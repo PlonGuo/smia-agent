@@ -2,9 +2,8 @@
 
 import logging
 import os
-from typing import Optional
 
-from langfuse import get_client, observe
+from langfuse import get_client
 from pydantic_ai import Agent
 
 from core.config import settings
@@ -49,9 +48,9 @@ def init_langfuse() -> None:
 
 def trace_metadata(
     user_id: str,
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
     source: str = "web",
-    tags: Optional[list[str]] = None,
+    tags: list[str] | None = None,
 ) -> None:
     """Update the current Langfuse trace with user/session metadata."""
     if not _langfuse_enabled:

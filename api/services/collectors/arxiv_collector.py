@@ -9,6 +9,7 @@ import arxiv
 from langfuse import observe
 
 from models.digest_schemas import RawCollectorItem
+
 from .base import register_collector
 
 logger = logging.getLogger(__name__)

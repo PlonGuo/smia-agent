@@ -7,9 +7,8 @@ compatible with serverless environments (no shared in-memory state).
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from core.config import settings
 from services.database import get_supabase_client
 
 logger = logging.getLogger(__name__)
@@ -25,7 +24,7 @@ def check_rate_limit(user_id: str) -> tuple[bool, int]:
     can proceed, and remaining is how many analyses they have left.
     """
     start_of_day = (
-        datetime.now(timezone.utc)
+        datetime.now(UTC)
         .replace(hour=0, minute=0, second=0, microsecond=0)
         .isoformat()
     )

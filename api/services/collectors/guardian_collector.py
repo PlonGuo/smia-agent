@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from langfuse import observe
@@ -45,7 +45,7 @@ class GuardianCollector:
             logger.warning("Guardian collector: no API key configured, skipping")
             return []
 
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+        cutoff = datetime.now(UTC) - timedelta(hours=48)
         from_date = cutoff.strftime("%Y-%m-%d")
 
         all_items: list[RawCollectorItem] = []

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from postgrest.exceptions import APIError
 from postgrest.types import CountMethod
@@ -246,7 +246,7 @@ def lookup_bind_code(bind_code: str) -> dict | None:
         expires_at = response.data.get("code_expires_at")
         if expires_at:
             expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-            if expiry < datetime.now(timezone.utc):
+            if expiry < datetime.now(UTC):
                 return None  # expired
 
         return response.data
@@ -268,7 +268,7 @@ def complete_binding(bind_code: str, telegram_user_id: int) -> dict:
         .update(
             {
                 "telegram_user_id": telegram_user_id,
-                "bound_at": datetime.now(timezone.utc).isoformat(),
+                "bound_at": datetime.now(UTC).isoformat(),
                 "bind_code": None,  # clear the code after use
                 "code_expires_at": None,
             }

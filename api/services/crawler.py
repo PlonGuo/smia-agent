@@ -115,7 +115,7 @@ async def fetch_reddit(
             loop.run_in_executor(None, _sync_fetch),
             timeout=timeout,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error("Reddit fetch timed out for query: %s", query)
         return []
     except Exception as exc:
@@ -464,7 +464,7 @@ async def _crawl4ai_fetch(url: str) -> str | None:
     except ImportError:
         logger.warning("crawl4ai not installed – skipping")
         return None
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("Crawl4AI timed out for URL: %s", url)
         return None
     except Exception as exc:
@@ -488,7 +488,7 @@ async def _firecrawl_fetch(url: str) -> str | None:
             timeout=CRAWL_TIMEOUT,
         )
         return document.markdown if document else None
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("Firecrawl timed out for URL: %s", url)
         return None
     except Exception as exc:
@@ -716,7 +716,7 @@ async def fetch_news_rss(
             loop.run_in_executor(None, _sync_parse),
             timeout=CRAWL_TIMEOUT,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error("RSS feed fetch timed out for query: %s", query)
         return []
     except Exception as exc:
@@ -883,7 +883,7 @@ async def fetch_tavily(
     except ImportError:
         logger.warning("tavily-python not installed – skipping Tavily fetch")
         return []
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error("Tavily fetch timed out for query: %s", query)
         return []
     except Exception as exc:

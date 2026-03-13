@@ -12,6 +12,7 @@ from email.mime.text import MIMEText
 import resend
 
 from core.config import settings
+from models.update_schemas import UpdateSummary
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,7 @@ def _send_gmail(to: str, subject: str, html: str) -> None:
 
 
 def send_update_notification(
-    summary: "UpdateSummary", recipient_emails: list[str]
+    summary: UpdateSummary, recipient_emails: list[str]
 ) -> int:
     """Send a platform update email to all recipients via Gmail SMTP.
 
@@ -119,7 +120,6 @@ def send_update_notification(
     if not recipient_emails:
         return 0
 
-    safe_headline = html_mod.escape(summary.headline)
     safe_summary = html_mod.escape(summary.summary)
     safe_highlights = "".join(
         f'<li style="margin-bottom:6px;color:#333;">{html_mod.escape(h)}</li>'
