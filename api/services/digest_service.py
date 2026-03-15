@@ -284,4 +284,4 @@ async def _notify_telegram(digest_output, total_items: int, topic: str = "ai") -
     display_name = topic_cfg.get("display_name", topic.title())
     categories = digest_output.category_counts
     summary = digest_output.executive_summary
-    await notify_digest_ready(total_items, categories, summary, topic_name=display_name)
+    await notify_digest_ready(total_items, categories, summary, topic_name=display_name, topic=topic)
