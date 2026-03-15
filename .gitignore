@@ -39,6 +39,9 @@ Thumbs.db
 *.egg-info/
 dist/
 build/
+.coverage
+.coverage.*
+htmlcov/
 
 # Logs
 *.log
