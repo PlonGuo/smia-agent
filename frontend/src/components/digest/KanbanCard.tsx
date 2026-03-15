@@ -68,8 +68,10 @@ export default function KanbanCard({ item }: Props) {
           </Text>
         )}
         {item.also_on && item.also_on.length > 0 && (
-          <Text fontSize="xs" color="fg.muted">
-            +{item.also_on.join(', ')}
+          <Text fontSize="xs" color="fg.muted" wordBreak="break-all" overflow="hidden">
+            +{item.also_on.map((src) => {
+              try { return new URL(src).hostname.replace(/^www\./, ''); } catch { return src; }
+            }).join(', ')}
           </Text>
         )}
       </Flex>
