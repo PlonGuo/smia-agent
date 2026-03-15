@@ -208,7 +208,6 @@ async def create_share_token(
         "expires_at": expires_at,
     }).execute()
 
-    app_url = settings.effective_app_url
-    share_url = f"{app_url}/ai-daily-report/shared/{token}"
+    share_url = f"{settings.frontend_url}/ai-daily-report/shared/{token}"
 
     return {"token": token, "url": share_url, "expires_at": expires_at}

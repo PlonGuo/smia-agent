@@ -73,6 +73,7 @@ class Settings(BaseSettings):
     # Internal (two-phase pipeline trigger)
     internal_secret: str = ""
     app_url: str = ""  # Set in Vercel env, or auto-derived from VERCEL_URL
+    frontend_url: str = "https://smia-agent.vercel.app"  # Vercel frontend (always)
 
     # Environment (auto-detected)
     environment: str = ""
