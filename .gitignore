@@ -22,6 +22,9 @@ __pycache__/
 # Vercel
 .vercel/
 
+# Supabase CLI temp
+supabase/.temp/
+
 # Screenshots
 screen-shot/
 
