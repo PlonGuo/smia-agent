@@ -738,6 +738,7 @@ class TestHandleDigest:
             "status": "collecting",
             "claimed": True,
             "digest_id": "d-new",
+            "window": "morning",
         }
         mock_run_digest = AsyncMock()
         with (
@@ -751,7 +752,7 @@ class TestHandleDigest:
         assert mock_send.call_count >= 1
         first_msg = mock_send.call_args_list[0][0][1]
         assert "generat" in first_msg.lower() or "digest" in first_msg.lower()
-        mock_run_digest.assert_called_once_with("d-new", topic="ai")
+        mock_run_digest.assert_called_once_with("d-new", topic="ai", window="morning")
 
     @pytest.mark.asyncio
     async def test_in_progress_sends_wait_message(self):
