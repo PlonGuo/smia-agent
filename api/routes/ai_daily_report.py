@@ -62,7 +62,7 @@ async def get_today_digest(
     result = claim_or_get_digest(user.user_id, user.access_token, topic=topic)
 
     if result.get("claimed"):
-        task = asyncio.create_task(run_digest(result["digest_id"], topic=topic))
+        task = asyncio.create_task(run_digest(result["digest_id"], topic=topic, window=result.get("window", "morning")))
         _background_tasks.add(task)
         task.add_done_callback(_task_done)
 
@@ -94,7 +94,7 @@ async def list_digests(
 
     data_resp = (
         client.table("daily_digests")
-        .select("id, digest_date, topic, status, executive_summary, total_items, category_counts, created_at")
+        .select("id, digest_date, topic, digest_window, status, executive_summary, total_items, category_counts, created_at")
         .eq("status", "completed")
         .eq("topic", topic)
         .order("digest_date", desc=True)
