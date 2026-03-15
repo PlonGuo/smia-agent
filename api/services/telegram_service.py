@@ -393,7 +393,7 @@ async def handle_digest(chat_id: int, telegram_user_id: int, topic: str = "ai") 
     access = get_digest_access_status(user_id, access_token)
     print(f"[TG /digest] Access status: {access}")
     if access not in ("admin", "approved"):
-        digest_url = f"{WEB_APP_URL}/login?redirect=%2Fai-daily-report"
+        digest_url = f"{WEB_APP_URL}/login?redirect=%2Fai-daily-report%3Ftopic%3D{topic}"
         await send_message(
             chat_id,
             "\U0001f6ab <b>No digest access</b>\n\n"
@@ -435,7 +435,7 @@ async def handle_digest(chat_id: int, telegram_user_id: int, topic: str = "ai") 
                 f"\U0001f4ca {total} items analyzed{cat_text}\n\n"
                 f"<b>Summary:</b>\n{_escape_html(summary)}"
                 f"{hl_text}\n\n"
-                f'<a href="{WEB_APP_URL}/ai-daily-report">View full digest</a>',
+                f'<a href="{WEB_APP_URL}/ai-daily-report?topic={topic}">View full digest</a>',
             )
             print("[TG /digest] Sent completed digest to user")
 
@@ -450,7 +450,7 @@ async def handle_digest(chat_id: int, telegram_user_id: int, topic: str = "ai") 
                 "This usually takes 30-60 seconds. "
                 "You'll receive a notification when it's ready.\n\n"
                 "Please turn on Allow Notifications on your device.\n\n"
-                f'<a href="{WEB_APP_URL}/ai-daily-report">View progress on web</a>',
+                f'<a href="{WEB_APP_URL}/ai-daily-report?topic={topic}">View progress on web</a>',
             )
             try:
                 print(f"[TG /digest] Claimed! Running full digest pipeline for digest_id={result['digest_id']}")
@@ -468,7 +468,7 @@ async def handle_digest(chat_id: int, telegram_user_id: int, topic: str = "ai") 
                 "\u23f3 <b>Digest is being generated...</b>\n\n"
                 "The AI Daily Digest is currently being prepared. "
                 "You'll receive a notification when it's ready.\n\n"
-                f'<a href="{WEB_APP_URL}/ai-daily-report">View progress on web</a>',
+                f'<a href="{WEB_APP_URL}/ai-daily-report?topic={topic}">View progress on web</a>',
             )
             print(f"[TG /digest] Digest in progress ({status}), told user to wait")
 
@@ -480,7 +480,7 @@ async def handle_digest(chat_id: int, telegram_user_id: int, topic: str = "ai") 
                 "\u26a0\ufe0f <b>Digest unavailable</b>\n\n"
                 "Today's digest encountered an issue. "
                 "Please try again or check the web app.\n\n"
-                f'<a href="{WEB_APP_URL}/ai-daily-report">Open AI Digest</a>',
+                f'<a href="{WEB_APP_URL}/ai-daily-report?topic={topic}">Open AI Digest</a>',
             )
 
     except Exception as exc:
@@ -491,7 +491,7 @@ async def handle_digest(chat_id: int, telegram_user_id: int, topic: str = "ai") 
             chat_id,
             format_error(
                 "Failed to load digest. Please try again later.\n"
-                f'<a href="{WEB_APP_URL}/ai-daily-report">Open on web</a>'
+                f'<a href="{WEB_APP_URL}/ai-daily-report?topic={topic}">Open on web</a>'
             ),
         )
 
@@ -646,7 +646,7 @@ async def handle_update(update: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def notify_digest_ready(total_items: int, categories: dict, summary: str = "", topic_name: str = "AI Daily Digest") -> None:
+async def notify_digest_ready(total_items: int, categories: dict, summary: str = "", topic_name: str = "AI Daily Digest", topic: str = "ai") -> None:
     """Send digest notification to all authorized users with linked Telegram."""
     client = get_supabase_client()
 
@@ -688,7 +688,7 @@ async def notify_digest_ready(total_items: int, categories: dict, summary: str =
         f"\U0001f4ca {total_items} items analyzed\n"
         f"\U0001f3f7 {cat_text}\n"
         f"{summary_text}\n"
-        f'<a href="{WEB_APP_URL}/ai-daily-report">View full digest</a>'
+        f'<a href="{WEB_APP_URL}/ai-daily-report?topic={topic}">View full digest</a>'
     )
 
     for binding in bindings.data:
