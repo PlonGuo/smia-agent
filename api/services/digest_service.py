@@ -11,7 +11,7 @@ import asyncio
 import logging
 import time
 import traceback
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from langfuse import get_client, observe
