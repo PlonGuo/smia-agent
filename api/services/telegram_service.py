@@ -455,7 +455,7 @@ async def handle_digest(chat_id: int, telegram_user_id: int, topic: str = "ai") 
             try:
                 print(f"[TG /digest] Claimed! Running full digest pipeline for digest_id={result['digest_id']}")
                 from services.digest_service import run_digest
-                await run_digest(result["digest_id"], topic=topic)
+                await run_digest(result["digest_id"], topic=topic, window=result.get("window", "morning"))
                 print("[TG /digest] Digest pipeline completed successfully")
             except Exception as exc:
                 tb = traceback.format_exc()

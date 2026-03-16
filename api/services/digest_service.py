@@ -11,7 +11,8 @@ import asyncio
 import logging
 import time
 import traceback
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from langfuse import get_client, observe
 
@@ -24,6 +25,29 @@ from services.database import get_supabase_client
 
 logger = logging.getLogger(__name__)
 
+PT = ZoneInfo("America/Los_Angeles")
+
+
+def get_current_digest_window() -> tuple[str, str]:
+    """Return (digest_date_iso, window) based on current Pacific Time.
+
+    Windows:
+    - 10:00 AM PT → morning window (digest_date = today PT)
+    - 5:00 PM PT  → afternoon window (digest_date = today PT)
+    - Before 10 AM PT → yesterday's afternoon window
+    """
+    now_pt = datetime.now(PT)
+    hour = now_pt.hour
+
+    if hour >= 17:
+        return now_pt.date().isoformat(), "afternoon"
+    elif hour >= 10:
+        return now_pt.date().isoformat(), "morning"
+    else:
+        # Before 10 AM — still yesterday's afternoon window
+        yesterday = (now_pt - timedelta(days=1)).date()
+        return yesterday.isoformat(), "afternoon"
+
 
 def claim_or_get_digest(user_id: str | None = None, access_token: str | None = None, topic: str = "ai") -> dict:
     """Claim lock or return current status. Returns FAST — does NOT run pipeline.
@@ -34,9 +58,10 @@ def claim_or_get_digest(user_id: str | None = None, access_token: str | None = N
     'analyzing' for more than 5 minutes, it is reset to allow re-generation.
     """
     client = get_supabase_client()  # service role for RPC
-    today = date.today().isoformat()
+    today, window = get_current_digest_window()
+    print(f"[DIGEST] Window: {today} / {window} (topic={topic})")
 
-    result = client.rpc("claim_digest_generation", {"p_date": today, "p_topic": topic}).execute()
+    result = client.rpc("claim_digest_generation", {"p_date": today, "p_topic": topic, "p_window": window}).execute()
     row = result.data  # JSONB: {"claimed": bool, "digest_id": "...", "current_status": "..."}
 
     if not row["claimed"]:
@@ -70,6 +95,7 @@ def claim_or_get_digest(user_id: str | None = None, access_token: str | None = N
                     "status": "collecting",
                     "digest_id": row["digest_id"],
                     "claimed": True,
+                    "window": window,
                 }
 
         if current_status == "completed":
@@ -84,11 +110,12 @@ def claim_or_get_digest(user_id: str | None = None, access_token: str | None = N
                 "status": "completed",
                 "digest_id": row["digest_id"],
                 "digest": digest.data,
+                "window": window,
             }
-        return {"status": current_status, "digest_id": row["digest_id"]}
+        return {"status": current_status, "digest_id": row["digest_id"], "window": window}
 
     # We won the race — return immediately, pipeline runs as background task
-    return {"status": "collecting", "digest_id": row["digest_id"], "claimed": True}
+    return {"status": "collecting", "digest_id": row["digest_id"], "claimed": True, "window": window}
 
 
 # ---------------------------------------------------------------------------
@@ -96,14 +123,14 @@ def claim_or_get_digest(user_id: str | None = None, access_token: str | None = N
 # ---------------------------------------------------------------------------
 
 @observe(name="run_digest")
-async def run_digest(digest_id: str, topic: str = "ai") -> None:
+async def run_digest(digest_id: str, topic: str = "ai", window: str = "morning") -> None:
     """Run the full digest pipeline: collect → analyze → save → notify."""
     client = get_supabase_client()  # service role
-    today = date.today().isoformat()
+    today, _ = get_current_digest_window()  # use PT-based date
 
     try:
         # Phase 1: Collect using topic-specific collectors
-        all_items, source_health = await _run_collectors(client, today, topic)
+        all_items, source_health = await _run_collectors(client, today, topic, window)
 
         if not all_items:
             # All collectors failed — mark as failed
@@ -197,8 +224,8 @@ async def run_digest(digest_id: str, topic: str = "ai") -> None:
         }).eq("id", digest_id).execute()
 
 
-async def _run_collectors(client, today: str, topic: str = "ai") -> tuple[list[RawCollectorItem], dict]:
-    """Run topic-specific collectors in parallel, cache results per source+topic."""
+async def _run_collectors(client, today: str, topic: str = "ai", window: str = "morning") -> tuple[list[RawCollectorItem], dict]:
+    """Run topic-specific collectors in parallel, cache results per source+topic+window."""
     from services.collector_factory import get_collectors_for_topic
 
     all_items: list[RawCollectorItem] = []
@@ -213,6 +240,7 @@ async def _run_collectors(client, today: str, topic: str = "ai") -> tuple[list[R
         .select("source, items, item_count")
         .eq("digest_date", today)
         .eq("topic", topic)
+        .eq("digest_window", window)
         .execute()
     )
     cached_sources = {row["source"]: row for row in cached.data}
@@ -250,9 +278,10 @@ async def _run_collectors(client, today: str, topic: str = "ai") -> tuple[list[R
                         "digest_date": today,
                         "source": name,
                         "topic": topic,
+                        "digest_window": window,
                         "items": [item.model_dump(mode="json") for item in result],
                         "item_count": len(result),
-                    }, on_conflict="digest_date,source,topic").execute()
+                    }, on_conflict="digest_date,source,topic,digest_window").execute()
                 except Exception as exc:
                     logger.error("Failed to cache %s results: %s", name, exc)
 

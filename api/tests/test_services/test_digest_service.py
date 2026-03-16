@@ -131,9 +131,9 @@ class TestRunCollectors:
     async def test_caches_and_runs_missing(self):
         """Collectors that have cached data should be skipped; missing ones should run."""
         mock_client = MagicMock()
-        # No cached data — need two .eq() calls (digest_date, topic)
+        # No cached data — need three .eq() calls (digest_date, topic, digest_window)
         eq_chain = MagicMock()
-        eq_chain.eq.return_value.execute.return_value = MagicMock(data=[])
+        eq_chain.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
         mock_client.table.return_value.select.return_value.eq.return_value = eq_chain
         # Upsert for caching
         mock_client.table.return_value.upsert.return_value.execute.return_value = MagicMock()
@@ -157,9 +157,9 @@ class TestRunCollectors:
         """If cache exists for a collector, use it instead of running."""
         cached_items = [_make_sample_items()[0].model_dump(mode="json")]
         mock_client = MagicMock()
-        # Cached data exists — two .eq() calls return cached results
+        # Cached data exists — three .eq() calls (digest_date, topic, digest_window)
         eq_chain = MagicMock()
-        eq_chain.eq.return_value.execute.return_value = MagicMock(
+        eq_chain.eq.return_value.eq.return_value.execute.return_value = MagicMock(
             data=[{"source": "test", "items": cached_items, "item_count": 1}]
         )
         mock_client.table.return_value.select.return_value.eq.return_value = eq_chain
@@ -183,7 +183,7 @@ class TestRunCollectors:
         """Failed collector returns empty but doesn't crash."""
         mock_client = MagicMock()
         eq_chain = MagicMock()
-        eq_chain.eq.return_value.execute.return_value = MagicMock(data=[])
+        eq_chain.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
         mock_client.table.return_value.select.return_value.eq.return_value = eq_chain
 
         failing_collector = MagicMock()
